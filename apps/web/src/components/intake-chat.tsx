@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState, useEffect } from "react";
 import { AadhaarOtp } from "./aadhaar-otp";
+import { VoiceIntake } from "./voice-intake";
 
 type Step = "idle" | "thinking" | "success" | "error";
 
 interface FestivalTrigger {
-  season: string;
   label: string;
   kinds: string[];
   suggestion: string;
@@ -29,6 +29,15 @@ export function IntakeChat() {
   const [verifiedAadhaar, setVerifiedAadhaar] = useState<string | null>(null);
   const [duplicates, setDuplicates] = useState<DuplicateCase[] | null>(null);
   const [result, setResult] = useState<{ caseId?: string; error?: string } | null>(null);
+  const [voiceExtraction, setVoiceExtraction] = useState<{
+    transcript: string;
+    kind: string;
+    summary: string;
+    city: string;
+    state: string;
+    urgency: string;
+    amountRupees?: number;
+  } | null>(null);
 
   useEffect(() => {
     fetch("/api/festivals")
@@ -98,6 +107,19 @@ export function IntakeChat() {
     }
   };
 
+  const handleVoiceExtraction = (data: {
+    transcript: string;
+    kind: string;
+    summary: string;
+    city: string;
+    state: string;
+    urgency: string;
+    amountRupees?: number;
+  }) => {
+    setVoiceExtraction(data);
+    setText(data.summary);
+  };
+
   const activeTrigger = triggers[0];
 
   return (
@@ -143,6 +165,43 @@ export function IntakeChat() {
         />
 
         <AadhaarOtp verified={verifiedAadhaar !== null} onVerified={(a) => setVerifiedAadhaar(a)} />
+
+        {process.env.NEXT_PUBLIC_GEMINI_API_KEY !== undefined && (
+          <VoiceIntake
+            apiKey={process.env.NEXT_PUBLIC_GEMINI_API_KEY}
+            onExtraction={handleVoiceExtraction}
+          />
+        )}
+
+        {voiceExtraction !== null && (
+          <div className="rounded-md bg-green-50 border border-green-200 p-3 space-y-2">
+            <p className="text-xs font-medium text-green-800">✅ Voice extracted:</p>
+            <p className="text-xs text-green-700">
+              <strong>Kind:</strong> {voiceExtraction.kind}
+            </p>
+            <p className="text-xs text-green-700">
+              <strong>City:</strong> {voiceExtraction.city}, {voiceExtraction.state}
+            </p>
+            <p className="text-xs text-green-700">
+              <strong>Urgency:</strong> {voiceExtraction.urgency}
+            </p>
+            {voiceExtraction.amountRupees !== undefined && (
+              <p className="text-xs text-green-700">
+                <strong>Amount:</strong> ₹{voiceExtraction.amountRupees}
+              </p>
+            )}
+            <button
+              type="button"
+              onClick={() => {
+                setVoiceExtraction(null);
+                setText("");
+              }}
+              className="text-xs text-green-700 underline"
+            >
+              Clear and type manually
+            </button>
+          </div>
+        )}
 
         <label className="flex items-center gap-2 text-xs text-gray-600 select-none">
           <input
