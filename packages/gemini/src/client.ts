@@ -3,6 +3,8 @@
  * Model registry with automatic fallback: Google renames model ids often,
  * so a 404 NOT_FOUND on one id retries the next known-good id.
  * Sept 2026 pricing: 3.5 Flash ~$0.50/$3.00 per 1M in/out; 3.1 Pro ~$2/$12.
+ * NOTE: Gemini 3 Pro ids require the Interactions API on v1beta; generateContent
+ * serves the Flash family. Drafts therefore run on Flash with Pro as best-effort.
  */
 import { GoogleGenAI } from "@google/genai";
 import { ok, err, Result } from "@ziddi/domain";
@@ -13,7 +15,7 @@ export type GeminiModel = "gemini-3.5-flash" | "gemini-3.1-pro";
 
 const MODEL_FALLBACKS: Record<GeminiModel, ReadonlyArray<string>> = {
   "gemini-3.5-flash": ["gemini-3.8-flash", "gemini-3-flash-preview", "gemini-2.5-flash"],
-  "gemini-3.1-pro": ["gemini-3.1-pro-preview", "gemini-3-pro-preview", "gemini-2.5-pro"],
+  "gemini-3.1-pro": ["gemini-3.1-pro-preview", "gemini-3.5-flash", "gemini-3.8-flash", "gemini-2.5-flash"],
 };
 
 export interface CallOptions {

@@ -66,7 +66,7 @@ Evidence available: ${context.evidenceSummary}
 Produce a formal document ready to send.`;
 
   return client.generateStructured(prompt, draftSchema, {
-    model: "gemini-3.1-pro",
+    model: "gemini-3.5-flash",
     systemInstruction: SYSTEM_INSTRUCTION,
     temperature: 0.3,
   });
