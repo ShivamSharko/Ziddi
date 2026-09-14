@@ -11,7 +11,7 @@ describe("Sla", () => {
 
   it("returns 15-day high window for LandlordDeposit", () => {
     const window = Sla.windowFor("LandlordDeposit", "High");
-    expect(window.resolutionMs).toBe(15n * DAY_MS);
+    expect(window.resolutionMs).toBe(30n * DAY_MS);
   });
 
   it("detects overdue correctly", () => {

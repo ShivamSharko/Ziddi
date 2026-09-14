@@ -63,7 +63,7 @@ export const fold = (state: CaseState, event: DomainEvent): CaseState => {
         city: event.city,
         state: event.state,
         urgency: event.urgency,
-        amountPaise: event.amountPaise ?? Money.zero(),
+        amountPaise: (event.amountPaise !== undefined ? event.amountPaise : Money.zero()) as Paise,
         openedAtMs: event.at,
         status: "Evidence",
         events: [...state.events, event],
@@ -113,7 +113,7 @@ export const fold = (state: CaseState, event: DomainEvent): CaseState => {
       return {
         ...state,
         status: event.outcome === "Resolved" ? "Resolved" : "Withdrawn",
-        amountPaise: event.amountRecoveredPaise !== undefined ? event.amountRecoveredPaise : state.amountPaise,
+        amountPaise: (event.amountRecoveredPaise !== undefined ? event.amountRecoveredPaise : state.amountPaise) as Paise,
         events: [...state.events, event],
       };
   }
