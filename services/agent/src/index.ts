@@ -6,7 +6,6 @@ export {
   type EvidenceItemInput,
 } from "./orchestrator";
 export { OtpService, ConsoleOtpAdapter, type OtpAdapter } from "./otp";
-export * from "./serialize";
-
-export { SqliteEventStore } from "./db/sqlite-store";
+export { JsonFileEventStore } from "./db/json-store";
 export { seedDemoCases } from "./db/seed";
+export * from "./serialize";

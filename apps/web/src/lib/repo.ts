@@ -1,28 +1,25 @@
-import { CaseRepository } from "@ziddi/agent";
-import { SqliteEventStore } from "@ziddi/agent";
-import { seedDemoCases } from "@ziddi/agent";
+import { CaseRepository, JsonFileEventStore, seedDemoCases } from "@ziddi/agent";
 import type { DomainError } from "@ziddi/domain";
 import path from "node:path";
 
 declare global {
-  var __ziddiStore: SqliteEventStore | undefined;
+  var __ziddiStore: JsonFileEventStore | undefined;
   var __ziddiRepo: CaseRepository | undefined;
+  var __ziddiSeeded: boolean | undefined;
 }
-
-import fs from "node:fs";
 
 export const getRepo = (): CaseRepository => {
   if (globalThis.__ziddiRepo === undefined) {
-    const dataDir = path.join(process.cwd(), "data");
-    if (!fs.existsSync(dataDir)) {
-      fs.mkdirSync(dataDir, { recursive: true });
-    }
-    const dbPath = path.join(dataDir, "ziddi.db");
-    globalThis.__ziddiStore = new SqliteEventStore(dbPath);
+    const dbPath = path.join(process.cwd(), "data", "ziddi.json");
+    globalThis.__ziddiStore = new JsonFileEventStore(dbPath);
     globalThis.__ziddiRepo = new CaseRepository(globalThis.__ziddiStore);
-    
-    // Seed demo cases on first run
-    void seedDemoCases(globalThis.__ziddiStore);
+
+    if (!globalThis.__ziddiSeeded) {
+      globalThis.__ziddiSeeded = true;
+      void seedDemoCases(globalThis.__ziddiStore).catch((e) => {
+        console.error("[seed]", e);
+      });
+    }
   }
   return globalThis.__ziddiRepo;
 };

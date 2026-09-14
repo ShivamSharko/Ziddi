@@ -18,12 +18,10 @@
   "dependencies": {
     "@ziddi/domain": "workspace:*",
     "@ziddi/gemini": "workspace:*",
-    "sql.js": "^1.14.2",
     "ulid": "^2.3.0",
     "zod": "^3.24.0"
   },
   "devDependencies": {
-    "@types/sql.js": "^1.4.11",
     "typescript": "^7.0.2",
     "vitest": "^3.2.1"
   }
