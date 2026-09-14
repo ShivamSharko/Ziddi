@@ -4,7 +4,7 @@
  * these mappers - this is the single place bigint leaves the system.
  */
 import type { CaseState, DomainEvent } from "@ziddi/domain";
-import { isSlaOverdue, remainingMs } from "@ziddi/domain";
+import { isSlaOverdue, remainingMs, stageProgress, persistencePercentile } from "@ziddi/domain";
 
 export interface PendingDraftDto {
   readonly draftId: string;
@@ -12,6 +12,13 @@ export interface PendingDraftDto {
   readonly language: string;
   readonly body: string;
   readonly confidence: number;
+}
+
+export interface EvidenceDto {
+  readonly evidenceId: string;
+  readonly description: string;
+  readonly mimeType: string;
+  readonly dataUrl?: string;
 }
 
 export interface CaseEventDto {
@@ -32,12 +39,16 @@ export interface CaseSummaryDto {
   readonly amountRupees: number;
   readonly openedAtMs: number;
   readonly evidenceCount: number;
+  readonly anonymous: boolean;
+  readonly progress: number;
+  readonly percentile: number;
   readonly slaOverdue: boolean;
   readonly slaRemainingMs: number;
 }
 
 export interface CaseDetailDto extends CaseSummaryDto {
   readonly events: ReadonlyArray<CaseEventDto>;
+  readonly evidence: ReadonlyArray<EvidenceDto>;
   readonly pendingDraft: PendingDraftDto | null;
 }
 
@@ -74,6 +85,9 @@ export const toCaseSummary = (state: CaseState, nowMs: bigint): CaseSummaryDto =
   amountRupees: Number(state.amountPaise) / 100,
   openedAtMs: Number(state.openedAtMs),
   evidenceCount: state.evidenceCount,
+  anonymous: state.anonymous,
+  progress: stageProgress(state),
+  percentile: persistencePercentile(state, nowMs),
   slaOverdue: isSlaOverdue(state, nowMs),
   slaRemainingMs: Number(remainingMs(state, nowMs)),
 });
@@ -96,6 +110,6 @@ export const toCaseDetail = (state: CaseState, nowMs: bigint): CaseDetailDto => 
       }
     }
   }
-  return { ...toCaseSummary(state, nowMs), events, pendingDraft };
+  return { ...toCaseSummary(state, nowMs), events, evidence: state.evidence, pendingDraft };
 };
 

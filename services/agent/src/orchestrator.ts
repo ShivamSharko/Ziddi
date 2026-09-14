@@ -18,6 +18,7 @@ import type { CaseRepository } from "./repository";
 
 export interface StartCaseInput {
   rawCitizenText: string;
+  anonymous?: boolean;
   apiKey: string;
 }
 
@@ -53,6 +54,7 @@ export class ZiddiOrchestrator {
       city: extracted.city,
       state: extracted.state,
       urgency: extracted.urgency,
+      anonymous: input.anonymous,
       amountPaise,
       at: BigInt(Date.now()),
       actor: { type: "Agent", runId: ulid() },
@@ -80,6 +82,7 @@ export class ZiddiOrchestrator {
     caseId: string,
     description: string,
     mimeType: string,
+    options?: { dataUrl?: string; fileName?: string },
   ): Promise<Result<true, DomainError>> {
     const caseResult = await this.repo.getCase(caseId);
     if (caseResult.isErr()) {
@@ -96,6 +99,8 @@ export class ZiddiOrchestrator {
       hashSha256: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
       at: BigInt(Date.now()),
       actor: { type: "Citizen", id: "user_1" },
+      ...(options?.dataUrl !== undefined ? { dataUrl: options.dataUrl } : {}),
+      ...(options?.fileName !== undefined ? { fileName: options.fileName } : {}),
     };
 
     await this.repo.saveEvent(caseId, event);

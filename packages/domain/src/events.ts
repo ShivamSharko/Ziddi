@@ -30,6 +30,7 @@ export const caseOpenedSchema = baseSchema.extend({
   city: z.string().min(2).max(100),
   state: z.string().min(2).max(50),
   urgency: z.enum(["Emergency", "High", "Standard", "Low"]),
+  anonymous: z.boolean().optional(),
   amountPaise: z.bigint().optional(),
 });
 
@@ -39,6 +40,8 @@ export const evidenceAttachedSchema = baseSchema.extend({
   mimeType: z.string(),
   description: z.string(),
   hashSha256: z.string().length(64),
+  dataUrl: z.string().optional(),
+  fileName: z.string().optional(),
 });
 
 export const draftPreparedSchema = baseSchema.extend({

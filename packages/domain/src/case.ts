@@ -20,6 +20,13 @@ export type CaseStatus =
   | "Resolved"
   | "Withdrawn";
 
+export interface EvidenceRef {
+  readonly evidenceId: string;
+  readonly description: string;
+  readonly mimeType: string;
+  readonly dataUrl?: string;
+}
+
 export interface CaseState {
   readonly id: string;
   readonly kind: CaseKind;
@@ -31,6 +38,8 @@ export interface CaseState {
   readonly amountPaise: Paise;
   readonly openedAtMs: bigint;
   readonly evidenceCount: number;
+  readonly anonymous: boolean;
+  readonly evidence: ReadonlyArray<EvidenceRef>;
   readonly currentDraftId: string | null;
   readonly filedReference: string | null;
   readonly events: ReadonlyArray<DomainEvent>;
@@ -47,6 +56,8 @@ export const initialState = (): CaseState => ({
   amountPaise: Money.zero(),
   openedAtMs: 0n,
   evidenceCount: 0,
+  anonymous: false,
+  evidence: [],
   currentDraftId: null,
   filedReference: null,
   events: [],
@@ -63,6 +74,7 @@ export const fold = (state: CaseState, event: DomainEvent): CaseState => {
         city: event.city,
         state: event.state,
         urgency: event.urgency,
+        anonymous: event.anonymous ?? false,
         amountPaise: (event.amountPaise !== undefined ? event.amountPaise : Money.zero()) as Paise,
         openedAtMs: event.at,
         status: "Evidence",
@@ -72,7 +84,16 @@ export const fold = (state: CaseState, event: DomainEvent): CaseState => {
       return {
         ...state,
         evidenceCount: state.evidenceCount + 1,
-        status: state.status === "Evidence" && state.evidenceCount >= 0 ? "Drafting" : state.status,
+        evidence: [
+          ...state.evidence,
+          {
+            evidenceId: event.evidenceId,
+            description: event.description,
+            mimeType: event.mimeType,
+            ...(event.dataUrl !== undefined ? { dataUrl: event.dataUrl } : {}),
+          },
+        ],
+        status: state.status === "Evidence" ? "Drafting" : state.status,
         events: [...state.events, event],
       };
     case "DraftPrepared":
@@ -137,3 +158,28 @@ export const remainingMs = (state: CaseState, nowMs: bigint): bigint => {
   return Sla.remainingMs(window, state.openedAtMs, nowMs);
 };
 
+
+export const STAGE_PROGRESS: Record<CaseStatus, number> = {
+  Intake: 5,
+  Evidence: 20,
+  Drafting: 40,
+  AwaitingApproval: 60,
+  Filed: 75,
+  Tracking: 85,
+  Escalating: 90,
+  Resolved: 100,
+  Withdrawn: 100,
+};
+
+export const stageProgress = (state: CaseState): number => STAGE_PROGRESS[state.status];
+
+export const persistencePercentile = (state: CaseState, nowMs: bigint): number => {
+  const daysActive = Number(nowMs - state.openedAtMs) / 86_400_000;
+  const approvals = state.events.filter((e) => e.type === "DraftApproved").length;
+  const score =
+    35 +
+    state.evidence.length * 12 +
+    approvals * 18 +
+    Math.min(Math.max(daysActive, 0), 30) * 0.8;
+  return Math.max(5, Math.min(99, Math.round(score)));
+};
