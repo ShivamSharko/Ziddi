@@ -4,9 +4,9 @@ import { Sla } from "../sla";
 describe("Sla", () => {
   const DAY_MS = 86_400_000n;
 
-  it("returns 30-day standard window for CivicPothole", () => {
+  it("returns 21-day standard window for CivicPothole", () => {
     const window = Sla.windowFor("CivicPothole", "Standard");
-    expect(window.resolutionMs).toBe(30n * DAY_MS);
+    expect(window.resolutionMs).toBe(21n * DAY_MS);
   });
 
   it("returns 15-day high window for LandlordDeposit", () => {

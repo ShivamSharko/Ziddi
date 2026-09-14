@@ -6,3 +6,4 @@ export * from "./case";
 export * from "./festivals";
 
 export * from "./aadhaar";
+export * from "./legal-registry";
