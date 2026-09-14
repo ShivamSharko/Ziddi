@@ -39,6 +39,16 @@ const isNotFound = (error: unknown): boolean => {
   );
 };
 
+const isUnavailable = (error: unknown): boolean => {
+  const e = error as { status?: number; code?: number; message?: string };
+  return (
+    e?.status === 503 ||
+    e?.code === 503 ||
+    String(e?.message ?? "").includes("UNAVAILABLE") ||
+    String(e?.message ?? "").toLowerCase().includes("high demand")
+  );
+};
+
 export class GeminiClient {
   private readonly ai: GoogleGenAI;
 
@@ -87,6 +97,10 @@ export class GeminiClient {
         } catch (error) {
           lastError = error;
           if (isNotFound(error)) break;
+          if (isUnavailable(error) && attempt < Math.max(maxRetries, 4)) {
+            await sleep(Math.pow(2, attempt) * 1000);
+            continue;
+          }
           if (attempt < maxRetries) await sleep(Math.pow(2, attempt) * 250);
         }
       }
@@ -125,6 +139,10 @@ export class GeminiClient {
         } catch (error) {
           lastError = error;
           if (isNotFound(error)) break;
+          if (isUnavailable(error) && attempt < Math.max(maxRetries, 4)) {
+            await sleep(Math.pow(2, attempt) * 1000);
+            continue;
+          }
           if (attempt < maxRetries) await sleep(Math.pow(2, attempt) * 250);
         }
       }
