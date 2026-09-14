@@ -21,6 +21,8 @@ export const intakeExtractSchema = z.object({
   amountRupees: z.number().nonnegative().optional(),
   detectedLanguage: z.enum(["en", "hi", "en-IN-hinglish"]),
   confidence: z.number().min(0).max(1),
+  isGenuineGrievance: z.boolean(),
+  rejectionReason: z.string().optional(),
   missingInfo: z.array(z.string()).max(5),
 });
 

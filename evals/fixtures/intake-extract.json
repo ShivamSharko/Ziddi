@@ -18,9 +18,9 @@
       "kind": "CivicPothole",
       "city": "Bengaluru",
       "state": "Karnataka",
-      "urgency": "High",
       "detectedLanguage": "en-IN-hinglish",
-      "confidence": 0.7
+      "confidence": 0.7,
+      "isGenuineGrievance": true
     }
   },
   {
@@ -30,7 +30,8 @@
       "urgency": "High",
       "amountRupees": 15000,
       "detectedLanguage": "en-IN-hinglish",
-      "confidence": 0.75
+      "confidence": 0.75,
+      "isGenuineGrievance": true
     }
   },
   {
