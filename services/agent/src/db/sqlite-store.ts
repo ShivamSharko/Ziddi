@@ -2,6 +2,7 @@
  * SQLite event store using sql.js (pure WebAssembly — no native deps).
  * DB is kept in-memory and flushed to disk after every write.
  */
+import { createRequire } from "node:module";
 import initSqlJs, { type Database } from "sql.js";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
@@ -25,7 +26,11 @@ export class SqliteEventStore implements EventStore {
     }
     this.initPromise = (async () => {
       mkdirSync(dirname(this.dbPath), { recursive: true });
-      const SQL = await initSqlJs();
+      const require = createRequire(import.meta.url);
+      const wasmPath = require.resolve("sql.js/dist/sql-wasm.wasm");
+      const SQL = await initSqlJs({
+        locateFile: () => wasmPath,
+      });
       if (existsSync(this.dbPath)) {
         const buffer = readFileSync(this.dbPath);
         this.db = new SQL.Database(buffer);
