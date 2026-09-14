@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { InMemoryEventStore, CaseRepository } from "../repository.js";
+import { InMemoryEventStore, CaseRepository } from "../repository";
 import type { CaseOpened } from "@ziddi/domain";
 
 describe("CaseRepository", () => {

@@ -3,7 +3,7 @@
  * Hinglish-aware. Eval-gated (see evals/).
  */
 import { z } from "zod";
-import type { GeminiClient } from "../client.js";
+import type { GeminiClient } from "../client";
 import type { DomainError } from "@ziddi/domain";
 import type { Result } from "@ziddi/domain";
 

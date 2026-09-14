@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { Sla } from "../sla.js";
+import { Sla } from "../sla";
 
 describe("Sla", () => {
   const DAY_MS = 86_400_000n;

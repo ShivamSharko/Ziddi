@@ -3,7 +3,7 @@
  * Indians keep receipts — we turn that habit into a structured vault.
  */
 import { z } from "zod";
-import type { GeminiClient } from "../client.js";
+import type { GeminiClient } from "../client";
 import type { DomainError, Result } from "@ziddi/domain";
 
 export const evidenceChecklistSchema = z.object({

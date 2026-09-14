@@ -2,12 +2,12 @@
  * The Case aggregate. Event-sourced. Immutable state computed by folding events.
  * Pure — no side effects, no DB, no AI.
  */
-import { ok, err, Result } from "./result.js";
-import type { DomainError } from "./result.js";
-import { Sla } from "./sla.js";
-import type { CaseKind, Urgency } from "./sla.js";
-import { Money, type Paise } from "./money.js";
-import type { DomainEvent } from "./events.js";
+import { ok, err, Result } from "./result";
+import type { DomainError } from "./result";
+import { Sla } from "./sla";
+import type { CaseKind, Urgency } from "./sla";
+import { Money, type Paise } from "./money";
+import type { DomainEvent } from "./events";
 
 export type CaseStatus =
   | "Intake"

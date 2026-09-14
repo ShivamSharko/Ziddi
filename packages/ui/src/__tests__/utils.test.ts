@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { cn } from "../lib/utils.js";
-import { t } from "../translations/index.js";
+import { cn } from "../lib/utils";
+import { t } from "../translations/index";
 
 describe("cn utility", () => {
   it("merges tailwind classes correctly", () => {

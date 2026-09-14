@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { z } from "zod";
-import { GeminiClient } from "../client.js";
+import { GeminiClient } from "../client";
 
 describe("GeminiClient", () => {
   it("instantiates with API key", () => {

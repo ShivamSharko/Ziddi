@@ -1,6 +1,6 @@
-import { en } from "./en.js";
-import { hi } from "./hi.js";
-import { hinglish } from "./hinglish.js";
+import { en } from "./en";
+import { hi } from "./hi";
+import { hinglish } from "./hinglish";
 
 export type Language = "en" | "hi" | "hinglish";
 

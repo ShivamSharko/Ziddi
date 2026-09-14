@@ -2,8 +2,8 @@
  * INR amounts stored as paise (BigInt) to avoid floating-point errors.
  * Indians deal with exact rupee amounts in refunds, deposits, penalties.
  */
-import { ok, err, Result } from "./result.js";
-import type { DomainError } from "./result.js";
+import { ok, err, Result } from "./result";
+import type { DomainError } from "./result";
 
 export type Paise = bigint & { readonly __brand: "Paise" };
 

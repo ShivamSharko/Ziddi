@@ -12,7 +12,7 @@ import type {
   EvidenceAttached,
   Result,
 } from "@ziddi/domain";
-import type { CaseRepository } from "./repository.js";
+import type { CaseRepository } from "./repository";
 
 export interface StartCaseInput {
   rawCitizenText: string;

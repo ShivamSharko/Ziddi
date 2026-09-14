@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
-import * as Case from "../case.js";
-import type { CaseOpened, EvidenceAttached, DraftPrepared } from "../events.js";
+import * as Case from "../case";
+import type { CaseOpened, EvidenceAttached, DraftPrepared } from "../events";
 
 describe("Case fold + rehydrate", () => {
   const opened: CaseOpened = {

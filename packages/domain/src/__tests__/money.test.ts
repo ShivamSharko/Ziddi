@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { Money } from "../money.js";
+import { Money } from "../money";
 
 describe("Money", () => {
   it("converts rupees to paise correctly", () => {

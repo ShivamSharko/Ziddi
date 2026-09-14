@@ -3,8 +3,8 @@
  * Indian grievance norms: 30 days standard, 48 hours emergency, 7 days for refunds.
  * NEVER put this logic in an LLM.
  */
-import { ok, err, Result } from "./result.js";
-import type { DomainError } from "./result.js";
+import { ok, err, Result } from "./result";
+import type { DomainError } from "./result";
 
 export type CaseKind =
   | "CivicPothole"

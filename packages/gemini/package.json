@@ -11,12 +11,9 @@
     }
   },
   "scripts": {
-    "build": "tsup src/index.ts --format esm --clean",
-    "dev": "tsup src/index.ts --format esm --watch",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:watch": "vitest",
-    "clean": "rm -rf dist"
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@google/genai": "^1.24.0",
@@ -27,6 +24,5 @@
   "devDependencies": {
     "typescript": "^7.0.2",
     "vitest": "^3.2.1"
-  } 
+  }
 }
-

@@ -1,6 +1,6 @@
-export * from "./components/button.js";
-export * from "./components/input.js";
-export * from "./components/card.js";
-export * from "./lib/utils.js";
-export * from "./translations/index.js";
+export * from "./components/button";
+export * from "./components/input";
+export * from "./components/card";
+export * from "./lib/utils";
+export * from "./translations/index";
 

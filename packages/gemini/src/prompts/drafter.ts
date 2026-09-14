@@ -4,7 +4,7 @@
  * NEVER auto-files — always human approval.
  */
 import { z } from "zod";
-import type { GeminiClient } from "../client.js";
+import type { GeminiClient } from "../client";
 import type { DomainError, Result } from "@ziddi/domain";
 
 export const draftStageSchema = z.enum([
