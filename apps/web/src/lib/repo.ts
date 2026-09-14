@@ -1,11 +1,10 @@
-import { CaseRepository, JsonFileEventStore, seedDemoCases } from "@ziddi/agent";
+import { CaseRepository, JsonFileEventStore } from "@ziddi/agent";
 import type { DomainError } from "@ziddi/domain";
 import path from "node:path";
 
 declare global {
   var __ziddiStore: JsonFileEventStore | undefined;
   var __ziddiRepo: CaseRepository | undefined;
-  var __ziddiSeeded: boolean | undefined;
 }
 
 export const getRepo = (): CaseRepository => {
@@ -13,13 +12,6 @@ export const getRepo = (): CaseRepository => {
     const dbPath = path.join(process.cwd(), "data", "ziddi.json");
     globalThis.__ziddiStore = new JsonFileEventStore(dbPath);
     globalThis.__ziddiRepo = new CaseRepository(globalThis.__ziddiStore);
-
-    if (!globalThis.__ziddiSeeded) {
-      globalThis.__ziddiSeeded = true;
-      void seedDemoCases(globalThis.__ziddiStore).catch((e) => {
-        console.error("[seed]", e);
-      });
-    }
   }
   return globalThis.__ziddiRepo;
 };
