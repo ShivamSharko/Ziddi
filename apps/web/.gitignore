@@ -1,0 +1,12 @@
+# Local env
+.env
+.env.local
+.env.*.local
+
+# Next.js
+.next/
+out/
+
+# Debug
+npm-debug.log*
+
