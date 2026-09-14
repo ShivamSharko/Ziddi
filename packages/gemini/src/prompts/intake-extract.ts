@@ -58,7 +58,7 @@ export const intakeExtract = async (
   rawInput: string,
 ): Promise<Result<IntakeExtract, DomainError>> =>
   client.generateStructured(rawInput, intakeExtractSchema, {
-    model: "gemini-3.5-flash",
+    model: "gemini-3.8-flash",
     systemInstruction: SYSTEM_INSTRUCTION,
     temperature: 0.2,
   });

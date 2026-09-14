@@ -10,29 +10,44 @@ import { ok, err, Result } from "@ziddi/domain";
 import type { DomainError } from "@ziddi/domain";
 import { z, type ZodSchema } from "zod";
 
-export type GeminiModel = "gemini-3.5-flash" | "gemini-3.6-flash" | "gemini-3.1-pro";
+export type GeminiModel =
+  | "gemini-3.8-flash"
+  | "gemini-3.5-flash"
+  | "gemini-3.6-flash"
+  | "gemini-3.1-pro";
 
 const MODEL_FALLBACKS: Record<GeminiModel, ReadonlyArray<string>> = {
-  "gemini-3.5-flash": [
+  "gemini-3.8-flash": [
+    "gemini-3.7-flash",
     "gemini-3.6-flash",
+    "gemini-3.5-flash",
+    "gemini-3-flash-preview",
+    "gemini-3.5-flash-lite",
+    "gemini-3.1-flash-lite",
+  ],
+  "gemini-3.5-flash": [
     "gemini-3.8-flash",
     "gemini-3.7-flash",
+    "gemini-3.6-flash",
     "gemini-3-flash-preview",
-    "gemini-3.1-flash-lite-preview",
+    "gemini-3.5-flash-lite",
+    "gemini-3.1-flash-lite",
   ],
   "gemini-3.6-flash": [
-    "gemini-3.5-flash",
     "gemini-3.8-flash",
     "gemini-3.7-flash",
+    "gemini-3.5-flash",
     "gemini-3-flash-preview",
-    "gemini-3.1-flash-lite-preview",
+    "gemini-3.5-flash-lite",
+    "gemini-3.1-flash-lite",
   ],
   "gemini-3.1-pro": [
-    "gemini-3.1-pro-preview",
-    "gemini-3.5-flash",
-    "gemini-3.6-flash",
     "gemini-3.8-flash",
+    "gemini-3.7-flash",
+    "gemini-3.6-flash",
+    "gemini-3.5-flash",
     "gemini-3-flash-preview",
+    "gemini-3.5-flash-lite",
   ],
 };
 
