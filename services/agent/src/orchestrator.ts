@@ -44,6 +44,31 @@ export class ZiddiOrchestrator {
     }
     const extracted = extractResult.value;
 
+    if (!extracted.isGenuineGrievance) {
+      return err(
+        domainError.validation(
+          extracted.rejectionReason ??
+            "Yeh civic grievance nahi lagta. Ziddi sirf real community problems mein help karta hai.",
+        ),
+      );
+    }
+
+    if (extracted.confidence < 0.6) {
+      return err(
+        domainError.validation(
+          "Samajh nahi aaya clearly. Thoda detail mein likho - kya hua, kahan hua, kab hua.",
+        ),
+      );
+    }
+
+    if (extracted.city === "Unknown" || extracted.state === "Unknown") {
+      return err(
+        domainError.validation(
+          "Please mention your city and state (e.g. Bengaluru, Karnataka) taaki case sahi department ko jaaye.",
+        ),
+      );
+    }
+
     let amountPaise: bigint | undefined;
     if (extracted.amountRupees !== undefined) {
       const moneyResult = Money.fromRupees(extracted.amountRupees);

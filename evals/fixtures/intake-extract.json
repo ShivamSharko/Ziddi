@@ -8,7 +8,8 @@
       "urgency": "High",
       "amountRupees": 60000,
       "detectedLanguage": "en-IN-hinglish",
-      "confidence": 0.8
+      "confidence": 0.8,
+      "isGenuineGrievance": true
     }
   },
   {
@@ -31,6 +32,17 @@
       "detectedLanguage": "en-IN-hinglish",
       "confidence": 0.75
     }
+  },
+  {
+    "input": "i need sex",
+    "expected": {
+      "isGenuineGrievance": false
+    }
+  },
+  {
+    "input": "asdfgh qwerty zxcvbn test test hello",
+    "expected": {
+      "isGenuineGrievance": false
+    }
   }
 ]
-

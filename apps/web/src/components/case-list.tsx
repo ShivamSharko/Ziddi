@@ -14,6 +14,8 @@ interface CaseSummary {
   slaRemainingMs: number;
   anonymous: boolean;
   progress: number;
+  votes: number;
+  openedAtMs: number;
 }
 
 const DAY_MS = 86_400_000;
@@ -45,9 +47,11 @@ export function CaseList() {
     );
   }
 
+  const sorted = [...cases].sort((a, b) => b.votes - a.votes || b.openedAtMs - a.openedAtMs);
+
   return (
     <div className="space-y-3">
-      {cases.map((c) => (
+      {sorted.map((c) => (
         <a
           key={c.id}
           href={`/cases/${c.id}`}
@@ -55,9 +59,12 @@ export function CaseList() {
         >
           <div className="flex items-start justify-between gap-4">
             <div className="flex-1">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-xs font-mono text-gray-500">{c.id.slice(0, 10)}...</span>
                 <span className="text-xs px-2 py-0.5 bg-[var(--muted)] rounded">{c.urgency}</span>
+                <span className="text-xs px-2 py-0.5 bg-green-100 text-green-700 rounded">
+                  👍 {c.votes}
+                </span>
                 {c.anonymous && (
                   <span className="text-xs px-2 py-0.5 bg-gray-800 text-white rounded">🕶️</span>
                 )}

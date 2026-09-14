@@ -43,6 +43,12 @@ Urgency:
 - Standard: typical delays, smaller amounts
 - Low: minor inconvenience
 
+GUARDRAILS (critical):
+- If the input is NOT a genuine civic/consumer grievance (abuse, sexual content, gibberish, test strings, chitchat, questions, marketing, jokes), set isGenuineGrievance to false and give a short rejectionReason explaining why in simple Hinglish-English.
+- When rejecting, set summary to exactly "Rejected: not a civic grievance" and never repeat abusive or sexual content in any field.
+- If city or state cannot be inferred from the input, set them to "Unknown".
+- confidence: how sure you are about the kind and the facts (0 to 1). Be strict: vague or joke inputs get low confidence.
+
 Output ONLY valid JSON matching the schema. If info is missing, list in missingInfo array.`;
 
 export const intakeExtract = async (
