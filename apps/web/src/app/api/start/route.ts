@@ -19,7 +19,11 @@ export async function POST(request: Request) {
     }
 
     const orchestrator = new ZiddiOrchestrator(getRepo());
-    const result = await orchestrator.startCase({ rawCitizenText, apiKey });
+    const result = await orchestrator.startCase({
+      rawCitizenText,
+      apiKey,
+      anonymous: body.anonymous === true,
+    });
     if (result.isErr()) {
       return NextResponse.json({ error: errorMessage(result.error) }, { status: 500 });
     }
