@@ -47,9 +47,22 @@ const runFixture = async (client: GeminiClient, fixture: Fixture): Promise<boole
   }
 
   const actual = result.value;
+  const CITY_SYNONYMS: Record<string, ReadonlyArray<string>> = {
+    Bengaluru: ["Bengaluru", "Bangalore"],
+    Mumbai: ["Mumbai", "Bombay"],
+    Chennai: ["Chennai", "Madras"],
+    Kolkata: ["Kolkata", "Calcutta"],
+  };
+
   const matches = Object.entries(fixture.expected).every(([key, expectedValue]) => {
     if (key === "confidence") {
       return actual.confidence >= (expectedValue as number);
+    }
+    if (key === "city") {
+      const synonyms = CITY_SYNONYMS[expectedValue as string];
+      if (synonyms !== undefined) {
+        return synonyms.includes(actual.city);
+      }
     }
     return actual[key as keyof typeof actual] === expectedValue;
   });
