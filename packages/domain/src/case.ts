@@ -40,6 +40,9 @@ export interface CaseState {
   readonly evidenceCount: number;
   readonly anonymous: boolean;
   readonly evidence: ReadonlyArray<EvidenceRef>;
+  readonly votes: number;
+  readonly voters: ReadonlyArray<string>;
+  readonly citizenToken: string | null;
   readonly currentDraftId: string | null;
   readonly filedReference: string | null;
   readonly events: ReadonlyArray<DomainEvent>;
@@ -58,6 +61,9 @@ export const initialState = (): CaseState => ({
   evidenceCount: 0,
   anonymous: false,
   evidence: [],
+  votes: 0,
+  voters: [],
+  citizenToken: null,
   currentDraftId: null,
   filedReference: null,
   events: [],
@@ -75,6 +81,7 @@ export const fold = (state: CaseState, event: DomainEvent): CaseState => {
         state: event.state,
         urgency: event.urgency,
         anonymous: event.anonymous ?? false,
+        citizenToken: event.citizenToken ?? null,
         amountPaise: (event.amountPaise !== undefined ? event.amountPaise : Money.zero()) as Paise,
         openedAtMs: event.at,
         status: "Evidence",
@@ -128,6 +135,16 @@ export const fold = (state: CaseState, event: DomainEvent): CaseState => {
       return {
         ...state,
         status: "Escalating",
+        events: [...state.events, event],
+      };
+    case "CommunityUpvote":
+      if (state.voters.includes(event.voterToken)) {
+        return state;
+      }
+      return {
+        ...state,
+        votes: state.votes + 1,
+        voters: [...state.voters, event.voterToken],
         events: [...state.events, event],
       };
     case "CaseClosed":

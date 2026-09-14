@@ -7,6 +7,7 @@ import { Drafter, EvidenceChecklist, GeminiClient, IntakeExtract } from "@ziddi/
 import { Money, domainError, err, ok } from "@ziddi/domain";
 import type {
   CaseOpened,
+  CommunityUpvote,
   DomainError,
   DraftApproved,
   DraftPrepared,
@@ -18,8 +19,16 @@ import type { CaseRepository } from "./repository";
 
 export interface StartCaseInput {
   rawCitizenText: string;
-  anonymous?: boolean;
   apiKey: string;
+  anonymous?: boolean;
+  citizenToken: string;
+}
+
+export interface EvidenceItemInput {
+  description: string;
+  mimeType: string;
+  dataUrl?: string;
+  fileName?: string;
 }
 
 export type DraftStage = "DemandNotice" | "FirstAppeal" | "RtiApplication";
@@ -54,8 +63,9 @@ export class ZiddiOrchestrator {
       city: extracted.city,
       state: extracted.state,
       urgency: extracted.urgency,
-      anonymous: input.anonymous,
       amountPaise,
+      anonymous: input.anonymous,
+      citizenToken: input.citizenToken,
       at: BigInt(Date.now()),
       actor: { type: "Agent", runId: ulid() },
     };
@@ -78,31 +88,57 @@ export class ZiddiOrchestrator {
     return EvidenceChecklist.evidenceChecklist(client, state.summary, state.kind);
   }
 
-  async attachEvidence(
+  async attachEvidenceBatch(
     caseId: string,
-    description: string,
-    mimeType: string,
-    options?: { dataUrl?: string; fileName?: string },
+    items: ReadonlyArray<EvidenceItemInput>,
   ): Promise<Result<true, DomainError>> {
+    if (items.length === 0 || items.length > 6) {
+      return err(domainError.validation("Provide between 1 and 6 evidence items"));
+    }
     const caseResult = await this.repo.getCase(caseId);
     if (caseResult.isErr()) {
       return err(caseResult.error);
     }
 
-    const event: EvidenceAttached = {
+    for (const item of items) {
+      const event: EvidenceAttached = {
+        id: ulid(),
+        caseId,
+        type: "EvidenceAttached",
+        evidenceId: ulid(),
+        mimeType: item.mimeType,
+        description: item.description,
+        hashSha256: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        at: BigInt(Date.now()),
+        actor: { type: "Citizen", id: "user_1" },
+        ...(item.dataUrl !== undefined ? { dataUrl: item.dataUrl } : {}),
+        ...(item.fileName !== undefined ? { fileName: item.fileName } : {}),
+      };
+      await this.repo.saveEvent(caseId, event);
+    }
+    return ok(true);
+  }
+
+  async upvoteCase(caseId: string, voterToken: string): Promise<Result<true, DomainError>> {
+    const caseResult = await this.repo.getCase(caseId);
+    if (caseResult.isErr()) {
+      return err(caseResult.error);
+    }
+    const state = caseResult.value;
+    if (state.voters.includes(voterToken)) {
+      return err(
+        domainError.invariant("duplicate-vote", "This citizen has already supported this case"),
+      );
+    }
+
+    const event: CommunityUpvote = {
       id: ulid(),
       caseId,
-      type: "EvidenceAttached",
-      evidenceId: ulid(),
-      mimeType,
-      description,
-      hashSha256: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      type: "CommunityUpvote",
+      voterToken,
       at: BigInt(Date.now()),
-      actor: { type: "Citizen", id: "user_1" },
-      ...(options?.dataUrl !== undefined ? { dataUrl: options.dataUrl } : {}),
-      ...(options?.fileName !== undefined ? { fileName: options.fileName } : {}),
+      actor: { type: "Citizen", id: "verified-token" },
     };
-
     await this.repo.saveEvent(caseId, event);
     return ok(true);
   }
@@ -124,7 +160,7 @@ export class ZiddiOrchestrator {
       language: "en-IN-hinglish",
       caseSummary: state.summary,
       evidenceSummary: `${state.evidenceCount} pieces of evidence attached`,
-      citizenName: "Citizen",
+      citizenName: state.anonymous ? "A verified citizen (anonymous)" : "Citizen",
       city: state.city,
       state: state.state,
       amountRupees: state.amountPaise > 0n ? Number(state.amountPaise) / 100 : undefined,

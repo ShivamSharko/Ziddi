@@ -42,6 +42,7 @@ export interface CaseSummaryDto {
   readonly anonymous: boolean;
   readonly progress: number;
   readonly percentile: number;
+  readonly votes: number;
   readonly slaOverdue: boolean;
   readonly slaRemainingMs: number;
 }
@@ -88,6 +89,7 @@ export const toCaseSummary = (state: CaseState, nowMs: bigint): CaseSummaryDto =
   anonymous: state.anonymous,
   progress: stageProgress(state),
   percentile: persistencePercentile(state, nowMs),
+  votes: state.votes,
   slaOverdue: isSlaOverdue(state, nowMs),
   slaRemainingMs: Number(remainingMs(state, nowMs)),
 });

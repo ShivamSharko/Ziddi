@@ -32,7 +32,7 @@ const SEASONS: ReadonlyArray<SeasonWindow> = [
     endMonth: 9,
     endDay: 30,
     kinds: ["CivicPothole", "CivicWater", "CivicGarbage"],
-    suggestion: "Barish season: pothole aur waterlogging complaints 3x spike hoti hain. Abhi file karo - SLA clock abhi shuru hota hai.",
+    suggestion: "Barish season: pothole complaints 3x spike. Duplicate case mat kholo - existing case ko upvote karo, ya naya file karo.",
   },
   {
     season: "Diwali",
@@ -42,7 +42,7 @@ const SEASONS: ReadonlyArray<SeasonWindow> = [
     endMonth: 11,
     endDay: 15,
     kinds: ["LandlordDeposit", "ElectricityBill", "ConsumerRefund"],
-    suggestion: "Diwali season: landlords deposit rok lete hain, bijli bills galat aate hain, online orders fail hote hain. Receipts save rakho.",
+    suggestion: "Diwali season: deposit, bijli bill aur refund disputes badhte hain. Pehle check karo koi similar case hai kya - upvote karo, warna naya kholo.",
   },
   {
     season: "Wedding",
@@ -52,7 +52,7 @@ const SEASONS: ReadonlyArray<SeasonWindow> = [
     endMonth: 2,
     endDay: 28,
     kinds: ["ConsumerRefund", "TelecomRefund"],
-    suggestion: "Shaadi season: vendors advance lekar bhag jaate hain. Advance receipts ke saath case file karo.",
+    suggestion: "Shaadi season: vendor advance disputes common hain. Community cases ko upvote karo taaki priority badhe.",
   },
   {
     season: "Summer",
@@ -62,7 +62,7 @@ const SEASONS: ReadonlyArray<SeasonWindow> = [
     endMonth: 5,
     endDay: 31,
     kinds: ["ElectricityBill", "CivicWater"],
-    suggestion: "Garmi mein bijli aur paani disputes badhte hain. Bill screenshots vault mein daalo.",
+    suggestion: "Garmi mein bijli/paani disputes: existing case ko support karo ya receipt ke saath naya kholo.",
   },
   {
     season: "Travel",
@@ -72,7 +72,7 @@ const SEASONS: ReadonlyArray<SeasonWindow> = [
     endMonth: 1,
     endDay: 10,
     kinds: ["ConsumerRefund"],
-    suggestion: "Chhutti season: flight cancel aur hotel refund disputes. PNR aur booking IDs saboot hain.",
+    suggestion: "Flight/hotel refund disputes: similar case ko upvote karo - zyada votes = zyada priority.",
   },
 ];
 

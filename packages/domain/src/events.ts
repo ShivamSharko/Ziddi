@@ -31,6 +31,7 @@ export const caseOpenedSchema = baseSchema.extend({
   state: z.string().min(2).max(50),
   urgency: z.enum(["Emergency", "High", "Standard", "Low"]),
   anonymous: z.boolean().optional(),
+  citizenToken: z.string().length(64).optional(),
   amountPaise: z.bigint().optional(),
 });
 
@@ -83,6 +84,11 @@ export const caseClosedSchema = baseSchema.extend({
   amountRecoveredPaise: z.bigint().optional(),
 });
 
+export const communityUpvoteSchema = baseSchema.extend({
+  type: z.literal("CommunityUpvote"),
+  voterToken: z.string().length(64),
+});
+
 export const domainEventSchema = z.discriminatedUnion("type", [
   caseOpenedSchema,
   evidenceAttachedSchema,
@@ -92,6 +98,7 @@ export const domainEventSchema = z.discriminatedUnion("type", [
   filedExternallySchema,
   slaEscalatedSchema,
   caseClosedSchema,
+  communityUpvoteSchema,
 ]);
 
 export type DomainEvent = z.infer<typeof domainEventSchema>;
@@ -104,3 +111,5 @@ export type FiledExternally = z.infer<typeof filedExternallySchema>;
 export type SlaEscalated = z.infer<typeof slaEscalatedSchema>;
 export type CaseClosed = z.infer<typeof caseClosedSchema>;
 
+
+export type CommunityUpvote = z.infer<typeof communityUpvoteSchema>;
