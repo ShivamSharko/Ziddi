@@ -1,23 +1,13 @@
 import { NextResponse } from "next/server";
-import { CaseRepository, InMemoryEventStore } from "@ziddi/agent";
-
-const getRepo = (): CaseRepository => {
-  // @ts-expect-error globalThis access for persisting store across hot-reloads
-  if (!globalThis.__ziddiRepo) {
-    // @ts-expect-error
-    globalThis.__ziddiStore = new InMemoryEventStore();
-    // @ts-expect-error
-    globalThis.__ziddiRepo = new CaseRepository(globalThis.__ziddiStore);
-  }
-  // @ts-expect-error
-  return globalThis.__ziddiRepo;
-};
+import { toCaseSummary } from "@ziddi/agent";
+import { getRepo } from "@/lib/repo";
 
 export async function GET() {
   try {
     const repo = getRepo();
     const cases = await repo.listCases();
-    return NextResponse.json({ cases });
+    const nowMs = BigInt(Date.now());
+    return NextResponse.json({ cases: cases.map((c) => toCaseSummary(c, nowMs)) });
   } catch (err) {
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "Unknown error" },

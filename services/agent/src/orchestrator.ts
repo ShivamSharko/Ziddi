@@ -4,11 +4,13 @@
  */
 import { ulid } from "ulid";
 import { Drafter, EvidenceChecklist, GeminiClient, IntakeExtract } from "@ziddi/gemini";
-import { Money, err, ok } from "@ziddi/domain";
+import { Money, domainError, err, ok } from "@ziddi/domain";
 import type {
   CaseOpened,
   DomainError,
+  DraftApproved,
   DraftPrepared,
+  DraftRejected,
   EvidenceAttached,
   Result,
 } from "@ziddi/domain";
@@ -143,5 +145,52 @@ export class ZiddiOrchestrator {
 
     await this.repo.saveEvent(caseId, event);
     return ok(draftId);
+  }
+
+  async approveDraft(caseId: string): Promise<Result<true, DomainError>> {
+    const caseResult = await this.repo.getCase(caseId);
+    if (caseResult.isErr()) {
+      return err(caseResult.error);
+    }
+    const state = caseResult.value;
+    if (state.currentDraftId === null) {
+      return err(domainError.invariant("pending-draft", "No draft is awaiting approval"));
+    }
+
+    const event: DraftApproved = {
+      id: ulid(),
+      caseId,
+      type: "DraftApproved",
+      draftId: state.currentDraftId,
+      at: BigInt(Date.now()),
+      actor: { type: "Citizen", id: "user_1" },
+    };
+
+    await this.repo.saveEvent(caseId, event);
+    return ok(true);
+  }
+
+  async rejectDraft(caseId: string, reason?: string): Promise<Result<true, DomainError>> {
+    const caseResult = await this.repo.getCase(caseId);
+    if (caseResult.isErr()) {
+      return err(caseResult.error);
+    }
+    const state = caseResult.value;
+    if (state.currentDraftId === null) {
+      return err(domainError.invariant("pending-draft", "No draft is awaiting approval"));
+    }
+
+    const event: DraftRejected = {
+      id: ulid(),
+      caseId,
+      type: "DraftRejected",
+      draftId: state.currentDraftId,
+      reason,
+      at: BigInt(Date.now()),
+      actor: { type: "Citizen", id: "user_1" },
+    };
+
+    await this.repo.saveEvent(caseId, event);
+    return ok(true);
   }
 }

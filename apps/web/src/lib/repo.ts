@@ -1,0 +1,29 @@
+import { CaseRepository, InMemoryEventStore } from "@ziddi/agent";
+import type { DomainError } from "@ziddi/domain";
+
+declare global {
+  var __ziddiStore: InMemoryEventStore | undefined;
+  var __ziddiRepo: CaseRepository | undefined;
+}
+
+export const getRepo = (): CaseRepository => {
+  if (globalThis.__ziddiRepo === undefined) {
+    globalThis.__ziddiStore = new InMemoryEventStore();
+    globalThis.__ziddiRepo = new CaseRepository(globalThis.__ziddiStore);
+  }
+  return globalThis.__ziddiRepo;
+};
+
+export function errorMessage(error: DomainError): string {
+  switch (error.kind) {
+    case "ValidationFailed":
+      return error.message;
+    case "InvalidTransition":
+      return `Cannot transition: ${error.reason}`;
+    case "InvariantBroken":
+      return error.message;
+    case "NotFound":
+      return `${error.entity} not found`;
+  }
+}
+

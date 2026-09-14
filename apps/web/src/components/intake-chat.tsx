@@ -75,7 +75,7 @@ export function IntakeChat() {
                 Case ID: <code className="bg-white px-1 py-0.5 rounded">{result.caseId}</code>
               </p>
               <a
-                href={`/cases?id=${result.caseId}`}
+                href={`/cases/${result.caseId}`}
                 className="inline-block mt-2 text-sm text-[var(--primary)] hover:underline"
               >
                 View case →
