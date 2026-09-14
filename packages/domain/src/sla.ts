@@ -3,9 +3,9 @@
  * PURE, deterministic, testable.
  * NEVER put this logic in an LLM.
  */
-import { ok, err, Result } from "./result.js";
-import type { DomainError } from "./result.js";
-import { getDeadline } from "./legal-registry.js";
+import { ok, err, Result } from "./result";
+import type { DomainError } from "./result";
+import { getDeadline } from "./legal-registry";
 
 export type CaseKind =
   | "CivicPothole"

@@ -7,9 +7,9 @@ import { z } from "zod";
 import type { GeminiClient } from "../client.js";
 import type { DomainError, Result } from "@ziddi/domain";
 import { getDeadline, ok } from "@ziddi/domain";
-import { demandNoticeTemplate } from "./templates/demand-notice.js";
-import { rtiApplicationTemplate } from "./templates/rti-application.js";
-import { firstAppealTemplate } from "./templates/first-appeal.js";
+import { demandNoticeTemplate } from "./templates/demand-notice";
+import { rtiApplicationTemplate } from "./templates/rti-application";
+import { firstAppealTemplate } from "./templates/first-appeal";
 
 export const draftStageSchema = z.enum([
   "DemandNotice",
