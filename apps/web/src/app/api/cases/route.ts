@@ -1,9 +1,8 @@
 import { NextResponse } from "next/server";
 import { CaseRepository, InMemoryEventStore } from "@ziddi/agent";
 
-// @ts-expect-error
 const getRepo = (): CaseRepository => {
-  // @ts-expect-error
+  // @ts-expect-error globalThis access for persisting store across hot-reloads
   if (!globalThis.__ziddiRepo) {
     // @ts-expect-error
     globalThis.__ziddiStore = new InMemoryEventStore();
@@ -26,4 +25,3 @@ export async function GET() {
     );
   }
 }
-

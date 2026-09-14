@@ -1,15 +1,24 @@
 import { NextResponse } from "next/server";
 import { ZiddiOrchestrator, CaseRepository, InMemoryEventStore } from "@ziddi/agent";
+import type { DomainError } from "@ziddi/domain";
 
-// NOTE: In-memory store resets on server restart. Fine for hackathon demo.
-// Production would swap for SQLite/Postgres via repository interface.
-const globalStore = new InMemoryEventStore();
-const globalRepo = new CaseRepository(globalStore);
+function errorMessage(error: DomainError): string {
+  switch (error.kind) {
+    case "ValidationFailed":
+      return error.message;
+    case "InvalidTransition":
+      return `Cannot transition: ${error.reason}`;
+    case "InvariantBroken":
+      return error.message;
+    case "NotFound":
+      return `${error.entity} not found`;
+  }
+}
 
-// @ts-expect-error attaching to globalThis for persistence across hot-reloads
-globalThis.__ziddiStore ??= globalStore;
-// @ts-expect-error
-globalThis.__ziddiRepo ??= globalRepo;
+// @ts-expect-error globalThis access
+globalThis.__ziddiStore ??= new InMemoryEventStore();
+// @ts-expect-error globalThis access
+globalThis.__ziddiRepo ??= new CaseRepository(globalThis.__ziddiStore);
 
 export async function POST(request: Request) {
   try {
@@ -36,7 +45,7 @@ export async function POST(request: Request) {
 
     const result = await orchestrator.startCase({ rawCitizenText, apiKey });
     if (result.isErr()) {
-      return NextResponse.json({ error: result.error.message }, { status: 500 });
+      return NextResponse.json({ error: errorMessage(result.error) }, { status: 500 });
     }
     return NextResponse.json({ caseId: result.value });
   } catch (err) {
@@ -46,4 +55,3 @@ export async function POST(request: Request) {
     );
   }
 }
-
