@@ -18,13 +18,12 @@
   "dependencies": {
     "@ziddi/domain": "workspace:*",
     "@ziddi/gemini": "workspace:*",
-    "better-sqlite3": "^11.10.0",
-    "drizzle-orm": "^0.36.4",
+    "sql.js": "^1.14.2",
     "ulid": "^2.3.0",
     "zod": "^3.24.0"
   },
   "devDependencies": {
-    "@types/better-sqlite3": "^9.6.0",
+    "@types/sql.js": "^1.4.11",
     "typescript": "^7.0.2",
     "vitest": "^3.2.1"
   }

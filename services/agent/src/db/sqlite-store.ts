@@ -1,65 +1,86 @@
-import Database from "better-sqlite3";
-import { drizzle } from "drizzle-orm/better-sqlite3";
-import { eq } from "drizzle-orm";
+/**
+ * SQLite event store using sql.js (pure WebAssembly — no native deps).
+ * DB is kept in-memory and flushed to disk after every write.
+ */
+import initSqlJs, { type Database } from "sql.js";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { dirname } from "node:path";
 import type { DomainEvent } from "@ziddi/domain";
 import type { EventStore } from "../repository";
-import { events } from "./schema";
-
-const replacer = (_key: string, value: any) =>
-  typeof value === "bigint" ? { $bigint: value.toString() } : value;
-
-const reviver = (_key: string, value: any) =>
-  value && typeof value === "object" && typeof value.$bigint === "string"
-    ? BigInt(value.$bigint)
-    : value;
 
 export class SqliteEventStore implements EventStore {
-  private db: Database.Database;
-  private orm: ReturnType<typeof drizzle>;
+  private db: Database | null = null;
+  private readonly dbPath: string;
+  private initPromise: Promise<void> | null = null;
 
   constructor(dbPath: string) {
-    this.db = new Database(dbPath);
-    this.orm = drizzle(this.db);
-    this.migrate();
+    this.dbPath = dbPath;
   }
 
-  private migrate() {
-    this.db.exec(`
-      CREATE TABLE IF NOT EXISTS events (
-        id TEXT PRIMARY KEY,
-        case_id TEXT NOT NULL,
-        type TEXT NOT NULL,
-        payload TEXT NOT NULL,
-        at INTEGER NOT NULL
-      )
-    `);
-    this.db.exec(`
-      CREATE INDEX IF NOT EXISTS idx_events_case_id ON events(case_id)
-    `);
+  private async ensureInit(): Promise<void> {
+    if (this.db !== null) return;
+    if (this.initPromise !== null) {
+      await this.initPromise;
+      return;
+    }
+    this.initPromise = (async () => {
+      mkdirSync(dirname(this.dbPath), { recursive: true });
+      const SQL = await initSqlJs();
+      if (existsSync(this.dbPath)) {
+        const buffer = readFileSync(this.dbPath);
+        this.db = new SQL.Database(buffer);
+      } else {
+        this.db = new SQL.Database();
+      }
+      this.db.run(`
+        CREATE TABLE IF NOT EXISTS events (
+          id TEXT PRIMARY KEY,
+          case_id TEXT NOT NULL,
+          type TEXT NOT NULL,
+          payload TEXT NOT NULL,
+          at INTEGER NOT NULL
+        )
+      `);
+      this.db.run(`
+        CREATE INDEX IF NOT EXISTS idx_events_case_id ON events(case_id)
+      `);
+      this.flush();
+    })();
+    await this.initPromise;
+  }
+
+  private flush(): void {
+    if (this.db === null) return;
+    const data = this.db.export();
+    writeFileSync(this.dbPath, Buffer.from(data));
   }
 
   async append(caseId: string, event: DomainEvent): Promise<void> {
-    await this.orm.insert(events).values({
-      id: event.id,
-      caseId,
-      type: event.type,
-      payload: JSON.stringify(event, replacer),
-      at: Number(event.at),
-    });
+    await this.ensureInit();
+    if (this.db === null) throw new Error("DB not initialized");
+    this.db.run(
+      "INSERT INTO events (id, case_id, type, payload, at) VALUES (?, ?, ?, ?, ?)",
+      [event.id, caseId, event.type, JSON.stringify(event), Number(event.at)],
+    );
+    this.flush();
   }
 
   async load(caseId: string): Promise<ReadonlyArray<DomainEvent>> {
-    const rows = await this.orm
-      .select()
-      .from(events)
-      .where(eq(events.caseId, caseId))
-      .orderBy(events.at);
-
-    return rows.map((row) => JSON.parse(row.payload, reviver) as DomainEvent);
+    await this.ensureInit();
+    if (this.db === null) throw new Error("DB not initialized");
+    const results = this.db.exec(
+      "SELECT payload FROM events WHERE case_id = ? ORDER BY at ASC",
+      [caseId],
+    );
+    const rows = results[0]?.values ?? [];
+    return rows.map((row) => JSON.parse(row[0] as string) as DomainEvent);
   }
 
   async listCaseIds(): Promise<ReadonlyArray<string>> {
-    const rows = await this.orm.select({ caseId: events.caseId }).from(events).groupBy(events.caseId);
-    return rows.map((r) => r.caseId);
+    await this.ensureInit();
+    if (this.db === null) throw new Error("DB not initialized");
+    const results = this.db.exec("SELECT DISTINCT case_id FROM events");
+    const rows = results[0]?.values ?? [];
+    return rows.map((row) => row[0] as string);
   }
 }
