@@ -1,0 +1,14 @@
+# Dependencies
+node_modules/
+
+# Build artifacts
+dist/
+.next/
+.turbo/
+
+# Environment
+.env
+.env.local
+
+# Logs
+*.log

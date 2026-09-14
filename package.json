@@ -1,0 +1,26 @@
+{
+  "name": "ziddi",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Ziddi — the AI agent that never gives up on your grievance.",
+  "packageManager": "pnpm@10.15.0",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "test:watch": "turbo run test:watch",
+    "clean": "turbo run clean && rm -rf node_modules"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.0.0",
+    "turbo": "2.5.0",
+    "typescript": "5.7.0"
+  }
+}
+
