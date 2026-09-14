@@ -87,3 +87,26 @@ Built for [Fund My Crazy 2026](https://fundmycrazy.com) â€” a Google Gemini init
 ## License
 
 MIT
+
+## Portal Automation (Chrome Extension)
+
+Auto-fill Indian government grievance portals with your Ziddi case data.
+
+**Supported portals:**
+- CPGRAMS (pgportal.gov.in)
+- e-Daakhil (edaakhil.nic.in)
+- RTI Online (rtionline.gov.in)
+
+**Installation:**
+1. Open Chrome ? `chrome://extensions/`
+2. Enable **Developer mode**
+3. Click **Load unpacked**
+4. Select `extensions/chrome` folder
+
+**Usage:**
+1. Create a case in Ziddi
+2. Click extension icon ? select case ? choose portal
+3. Portal opens with form auto-filled
+4. Review and manually click Submit
+
+**Guardrail:** Extension respects the "draft-not-file" principle — user must manually submit.

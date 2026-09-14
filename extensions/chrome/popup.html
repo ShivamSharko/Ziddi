@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ziddi Portal Automation</title>
+  <style>
+    body {
+      width: 360px;
+      padding: 16px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      margin: 0;
+    }
+    h1 {
+      font-size: 18px;
+      margin: 0 0 12px 0;
+      color: #1e40af;
+    }
+    .case-list {
+      margin-bottom: 12px;
+    }
+    .case-item {
+      border: 1px solid #e5e7eb;
+      border-radius: 6px;
+      padding: 10px;
+      margin-bottom: 8px;
+      cursor: pointer;
+      transition: border-color 0.2s;
+    }
+    .case-item:hover {
+      border-color: #1e40af;
+    }
+    .case-item.selected {
+      border-color: #1e40af;
+      background: #eff6ff;
+    }
+    .case-id {
+      font-size: 11px;
+      font-family: monospace;
+      color: #6b7280;
+    }
+    .case-summary {
+      font-size: 13px;
+      margin-top: 4px;
+    }
+    .case-meta {
+      font-size: 11px;
+      color: #6b7280;
+      margin-top: 4px;
+    }
+    button {
+      width: 100%;
+      padding: 10px;
+      background: #1e40af;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-size: 14px;
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+    button:hover:not(:disabled) {
+      opacity: 0.9;
+    }
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    .portal-buttons {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 6px;
+      margin-top: 8px;
+    }
+    .portal-btn {
+      padding: 8px 4px;
+      font-size: 12px;
+    }
+    .disclaimer {
+      font-size: 11px;
+      color: #6b7280;
+      margin-top: 12px;
+      padding: 8px;
+      background: #fef3c7;
+      border-radius: 4px;
+    }
+    .empty {
+      text-align: center;
+      padding: 20px;
+      color: #6b7280;
+      font-size: 13px;
+    }
+    .loading {
+      text-align: center;
+      padding: 20px;
+      color: #6b7280;
+    }
+  </style>
+</head>
+<body>
+  <h1>🎯 Ziddi Portal Automation</h1>
+  <div id="content">
+    <div class="loading">Loading cases...</div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
+
