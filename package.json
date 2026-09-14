@@ -15,12 +15,13 @@
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
     "test:watch": "turbo run test:watch",
-    "clean": "turbo run clean && rm -rf node_modules"
+    "clean": "turbo run clean && rm -rf node_modules",
+    "evals": "tsx evals/run-evals.ts"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.0.6",
     "turbo": "^2.5.4",
-    "typescript": "^7.0.2"
+    "typescript": "^7.0.2",
+    "tsx": "^4.19.0"
   }
 }
-

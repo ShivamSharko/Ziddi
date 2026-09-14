@@ -1,0 +1,36 @@
+[
+  {
+    "input": "Mera landlord Bengaluru mein 60000 deposit wapas nahi de raha, 2 mahine ho gaye. Rental agreement hai mere paas.",
+    "expected": {
+      "kind": "LandlordDeposit",
+      "city": "Bengaluru",
+      "state": "Karnataka",
+      "urgency": "High",
+      "amountRupees": 60000,
+      "detectedLanguage": "en-IN-hinglish",
+      "confidence": 0.8
+    }
+  },
+  {
+    "input": "HSR Layout 27th main road pe bada pothole hai, 3 hafte se fix nahi hua. Kal bike gir gayi.",
+    "expected": {
+      "kind": "CivicPothole",
+      "city": "Bengaluru",
+      "state": "Karnataka",
+      "urgency": "High",
+      "detectedLanguage": "en-IN-hinglish",
+      "confidence": 0.7
+    }
+  },
+  {
+    "input": "Air India ne flight cancel ki thi, 15000 refund nahi mil raha. 1 mahine ho gaye.",
+    "expected": {
+      "kind": "ConsumerRefund",
+      "urgency": "High",
+      "amountRupees": 15000,
+      "detectedLanguage": "en-IN-hinglish",
+      "confidence": 0.75
+    }
+  }
+]
+
