@@ -45,5 +45,52 @@
     "expected": {
       "isGenuineGrievance": false
     }
+  },
+  {
+    "input": "Maine Jal Board ko RTI dala tha water connection ke liye, 40 din ho gaye koi jawab nahi aaya. Delhi mein hoon.",
+    "expected": {
+      "kind": "RtiFiling",
+      "city": "Delhi",
+      "state": "Delhi",
+      "isGenuineGrievance": true
+    }
+  },
+  {
+    "input": "Amazon se 15000 ka phone order kiya tha, fake product aaya. Return kiya par refund nahi mila 10 din se. Mumbai.",
+    "expected": {
+      "kind": "ConsumerRefund",
+      "city": "Mumbai",
+      "state": "Maharashtra",
+      "amountRupees": 15000,
+      "isGenuineGrievance": true
+    }
+  },
+  {
+    "input": "BESCOM ne pichle mahine ka 8000 ka bill bheja hai par meter reading galat hai. Bangalore Yelahanka.",
+    "expected": {
+      "kind": "ElectricityBill",
+      "city": "Bengaluru",
+      "state": "Karnataka",
+      "amountRupees": 8000,
+      "isGenuineGrievance": true
+    }
+  },
+  {
+    "input": "Mere Aadhaar card mein mobile number update nahi ho raha hai, 3 baar center gaya par biometric fail bata rahe hain. Pune.",
+    "expected": {
+      "kind": "AadhaarUpdate",
+      "city": "Pune",
+      "state": "Maharashtra",
+      "isGenuineGrievance": true
+    }
+  },
+  {
+    "input": "Gurgaon sector 45 mein 2 hafte se paani nahi aa raha, tanker bhi nahi aa raha. Gurgaon Haryana.",
+    "expected": {
+      "kind": "CivicWater",
+      "city": "Gurugram",
+      "state": "Haryana",
+      "isGenuineGrievance": true
+    }
   }
 ]
