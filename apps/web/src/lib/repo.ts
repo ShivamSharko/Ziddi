@@ -9,7 +9,8 @@ declare global {
 
 export const getRepo = (): CaseRepository => {
   if (globalThis.__ziddiRepo === undefined) {
-    const dbPath = path.join(process.cwd(), "data", "ziddi.json");
+    const dataDir = process.env.ZIDDI_DATA_DIR ?? "data";
+    const dbPath = path.join(process.cwd(), dataDir, "ziddi.json");
     globalThis.__ziddiStore = new JsonFileEventStore(dbPath);
     globalThis.__ziddiRepo = new CaseRepository(globalThis.__ziddiStore);
   }

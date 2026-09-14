@@ -13,3 +13,5 @@ npm-debug.log*
 
 /data/
 *.db
+
+/data-e2e/
