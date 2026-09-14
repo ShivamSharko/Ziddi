@@ -1,8 +1,8 @@
 /**
- * Voice intake client using Gemini Live API.
- * Streams audio, returns real-time transcription + structured extraction.
+ * Voice intake client using Gemini 2.0 Flash for audio processing.
+ * Processes base64-encoded audio, returns transcription + structured extraction.
  */
-import { GoogleGenAI, type LiveServerMessage } from "@google/genai";
+import { GoogleGenAI } from "@google/genai";
 import { ok, err, Result } from "@ziddi/domain";
 import type { DomainError } from "@ziddi/domain";
 
@@ -26,88 +26,62 @@ export class VoiceClient {
     this.ai = new GoogleGenAI({ apiKey });
   }
 
-  async startSession(
-    onTranscript: (text: string) => void,
-    onExtraction: (data: VoiceIntakeResult) => void,
-  ): Promise<Result<{ stop: () => void }, DomainError>> {
+  async processAudio(base64Audio: string): Promise<Result<VoiceIntakeResult, DomainError>> {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mediaRecorder = new MediaRecorder(stream, { mimeType: "audio/webm" });
-      const audioChunks: Blob[] = [];
-
-      mediaRecorder.ondataavailable = (event: any) => {
-        if (event.data.size > 0) {
-          audioChunks.push(event.data);
-        }
-      };
-
-      mediaRecorder.onstop = async () => {
-        const audioBlob = new Blob(audioChunks, { type: "audio/webm" });
-        const base64Audio = await blobToBase64(audioBlob);
-        
-        try {
-          const response = await this.ai.models.generateContent({
-            model: "gemini-2.0-flash-exp",
-            contents: {
-              parts: [
-                {
-                  inlineData: {
-                    mimeType: "audio/webm",
-                    data: base64Audio,
-                  },
-                },
-                {
-                  text: "Transcribe this Hinglish audio and extract structured grievance data. Return JSON with: transcript (the spoken words), kind (CivicPothole|LandlordDeposit|ConsumerRefund|RtiFiling|etc), summary, city, state, urgency, amountRupees (if mentioned), isGenuineGrievance (boolean).",
-                },
-              ],
+      const response = await this.ai.models.generateContent({
+        model: "gemini-2.0-flash-exp",
+        contents: {
+          parts: [
+            {
+              inlineData: {
+                mimeType: "audio/webm",
+                data: base64Audio,
+              },
             },
-            config: {
-              responseMimeType: "application/json",
+            {
+              text: `Transcribe this Hinglish audio and extract structured grievance data.
+              
+Return JSON with these exact fields:
+- transcript: the spoken words in original language
+- kind: one of [CivicPothole, CivicGarbage, CivicWater, LandlordDeposit, ConsumerRefund, RtiFiling, RtiAppeal, AadhaarUpdate, ElectricityBill, TelecomRefund]
+- summary: concise description of the problem (10-100 chars)
+- city: city name
+- state: Indian state name
+- urgency: one of [Emergency, High, Standard, Low]
+- amountRupees: numeric amount if mentioned, omit if not
+- isGenuineGrievance: true if this is a real civic/consumer issue, false for abuse/jokes/test
+
+Example output:
+{
+  "transcript": "Mera landlord ne 60000 deposit wapas nahi diya",
+  "kind": "LandlordDeposit",
+  "summary": "Landlord not returning 60000 deposit",
+  "city": "Bengaluru",
+  "state": "Karnataka",
+  "urgency": "High",
+  "amountRupees": 60000,
+  "isGenuineGrievance": true
+}`,
             },
-          });
+          ],
+        },
+        config: {
+          responseMimeType: "application/json",
+        },
+      });
 
-          const raw = response.text ?? "{}";
-          const parsed = JSON.parse(raw);
-          
-          onTranscript(parsed.transcript ?? "");
-          onExtraction({
-            transcript: parsed.transcript ?? "",
-            extracted: parsed,
-          });
-        } catch (error) {
-          console.error("Voice extraction failed:", error);
-          onTranscript("(Voice extraction failed, please type manually)");
-        }
-
-        stream.getTracks().forEach((track: any) => track.stop());
-      };
-
-      mediaRecorder.start();
+      const raw = response.text ?? "{}";
+      const parsed = JSON.parse(raw);
 
       return ok({
-        stop: () => {
-          if (mediaRecorder.state !== "inactive") {
-            mediaRecorder.stop();
-          }
-        },
+        transcript: parsed.transcript ?? "",
+        extracted: parsed,
       });
     } catch (error) {
       return err({
         kind: "ValidationFailed",
-        message: `Microphone access denied: ${String(error)}`,
+        message: `Voice processing failed: ${String(error)}`,
       });
     }
   }
-}
-
-async function blobToBase64(blob: Blob): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      const base64 = (reader.result as string).split(",")[1];
-      resolve(base64 ?? "");
-    };
-    reader.onerror = reject;
-    reader.readAsDataURL(blob);
-  });
 }

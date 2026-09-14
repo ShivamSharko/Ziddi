@@ -166,12 +166,7 @@ export function IntakeChat() {
 
         <AadhaarOtp verified={verifiedAadhaar !== null} onVerified={(a) => setVerifiedAadhaar(a)} />
 
-        {process.env.NEXT_PUBLIC_GEMINI_API_KEY !== undefined && (
-          <VoiceIntake
-            apiKey={process.env.NEXT_PUBLIC_GEMINI_API_KEY}
-            onExtraction={handleVoiceExtraction}
-          />
-        )}
+        <VoiceIntake onExtraction={handleVoiceExtraction} />
 
         {voiceExtraction !== null && (
           <div className="rounded-md bg-green-50 border border-green-200 p-3 space-y-2">

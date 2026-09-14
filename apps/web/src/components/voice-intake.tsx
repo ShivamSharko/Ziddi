@@ -1,10 +1,8 @@
 "use client";
 
-import { useState } from "react";
-import { VoiceClient } from "@ziddi/gemini";
+import { useState, useRef } from "react";
 
 interface VoiceIntakeProps {
-  apiKey: string;
   onExtraction: (data: {
     transcript: string;
     kind: string;
@@ -16,42 +14,78 @@ interface VoiceIntakeProps {
   }) => void;
 }
 
-export function VoiceIntake({ apiKey, onExtraction }: VoiceIntakeProps) {
+export function VoiceIntake({ onExtraction }: VoiceIntakeProps) {
   const [recording, setRecording] = useState(false);
   const [transcript, setTranscript] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [client, setClient] = useState<VoiceClient | null>(null);
-  const [stopFn, setStopFn] = useState<(() => void) | null>(null);
+  const [processing, setProcessing] = useState(false);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
 
   const startRecording = async () => {
     setError(null);
     setTranscript("");
-    const voiceClient = new VoiceClient(apiKey);
-    setClient(voiceClient);
+    audioChunksRef.current = [];
 
-    const result = await voiceClient.startSession(
-      (text) => setTranscript(text),
-      (data) => {
-        if (data.extracted !== null) {
-          onExtraction(data.extracted as any);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream, { mimeType: "audio/webm" });
+      mediaRecorderRef.current = mediaRecorder;
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
         }
-      },
-    );
+      };
 
-    if (result.isErr()) {
-      setError(JSON.stringify(result.error));
-      return;
+      mediaRecorder.onstop = async () => {
+        const audioBlob = new Blob(audioChunksRef.current, { type: "audio/webm" });
+        await processAudio(audioBlob);
+        stream.getTracks().forEach((track) => track.stop());
+      };
+
+      mediaRecorder.start();
+      setRecording(true);
+    } catch (err) {
+      setError(`Microphone access denied: ${err instanceof Error ? err.message : "Unknown error"}`);
     }
-
-    setStopFn(() => result.value.stop);
-    setRecording(true);
   };
 
   const stopRecording = () => {
-    if (stopFn !== null) {
-      stopFn();
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+      mediaRecorderRef.current.stop();
       setRecording(false);
-      setStopFn(null);
+    }
+  };
+
+  const processAudio = async (audioBlob: Blob) => {
+    setProcessing(true);
+    setError(null);
+
+    try {
+      const formData = new FormData();
+      formData.append("audio", audioBlob);
+
+      const response = await fetch("/api/voice-intake", {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Voice processing failed");
+      }
+
+      setTranscript(data.transcript);
+      
+      if (data.extracted) {
+        onExtraction(data.extracted);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Voice processing failed");
+    } finally {
+      setProcessing(false);
     }
   };
 
@@ -60,13 +94,14 @@ export function VoiceIntake({ apiKey, onExtraction }: VoiceIntakeProps) {
       <div className="flex items-center gap-3">
         <button
           onClick={recording ? stopRecording : startRecording}
-          className={`px-4 py-2 rounded-md text-sm font-medium ${
+          disabled={processing}
+          className={`px-4 py-2 rounded-md text-sm font-medium disabled:opacity-50 ${
             recording
               ? "bg-red-600 text-white hover:bg-red-700"
               : "bg-[var(--primary)] text-white hover:opacity-90"
           }`}
         >
-          {recording ? "⏹️ Stop Recording" : "🎤 Voice Intake"}
+          {processing ? "⏳ Processing..." : recording ? "⏹️ Stop Recording" : "🎤 Voice Intake"}
         </button>
         {recording && (
           <span className="text-xs text-red-600 animate-pulse">● Recording...</span>
