@@ -1,99 +1,206 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useRef, useState } from "react";
+
+interface ExtractedCase {
+  transcript: string;
+  kind: string;
+  summary: string;
+  city: string;
+  state: string;
+  urgency: string;
+  amountRupees?: number;
+}
 
 interface VoiceIntakeProps {
-  onExtraction: (data: {
-    transcript: string;
-    kind: string;
-    summary: string;
-    city: string;
-    state: string;
-    urgency: string;
-    amountRupees?: number;
-  }) => void;
+  onExtraction: (data: ExtractedCase) => void;
 }
+
+interface LiveRefs {
+  stream: MediaStream;
+  context: AudioContext;
+  processor: ScriptProcessorNode;
+  source: MediaStreamAudioSourceNode;
+  chunkController: ReadableStreamDefaultController<Uint8Array>;
+}
+
+const resampleTo16k = (input: Float32Array, inputRate: number): Int16Array => {
+  const ratio = inputRate / 16000;
+  const outLength = Math.max(1, Math.floor(input.length / ratio));
+  const out = new Int16Array(outLength);
+  for (let i = 0; i < outLength; i++) {
+    const pos = i * ratio;
+    const idx = Math.floor(pos);
+    const frac = pos - idx;
+    const a = input[idx] ?? 0;
+    const b = input[idx + 1] ?? a;
+    const s = Math.max(-1, Math.min(1, a + (b - a) * frac));
+    out[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
+  }
+  return out;
+};
 
 export function VoiceIntake({ onExtraction }: VoiceIntakeProps) {
   const [recording, setRecording] = useState(false);
+  const [processing, setProcessing] = useState(false);
   const [transcript, setTranscript] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [processing, setProcessing] = useState(false);
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const audioChunksRef = useRef<Blob[]>([]);
+  const liveRefs = useRef<LiveRefs | null>(null);
+  const modeRef = useRef<"live" | "upload">("live");
+  const recorderRef = useRef<MediaRecorder | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
+
+  const handleLine = (line: string) => {
+    if (line.trim().length === 0) return;
+    const msg = JSON.parse(line) as {
+      type: string;
+      text?: string;
+      transcript?: string;
+      extracted?: ExtractedCase | null;
+      message?: string;
+    };
+    if (msg.type === "partial" && typeof msg.text === "string") {
+      setTranscript(msg.text);
+    }
+    if (msg.type === "final") {
+      if (typeof msg.transcript === "string") setTranscript(msg.transcript);
+      if (msg.extracted !== null && msg.extracted !== undefined) onExtraction(msg.extracted);
+    }
+    if (msg.type === "error" && typeof msg.message === "string") {
+      setError(msg.message);
+    }
+  };
+
+  const startLive = async () => {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const context = new AudioContext();
+    const source = context.createMediaStreamSource(stream);
+    const processor = context.createScriptProcessor(4096, 1, 1);
+    source.connect(processor);
+    processor.connect(context.destination);
+
+    let chunkController: ReadableStreamDefaultController<Uint8Array> | null = null;
+    const body = new ReadableStream<Uint8Array>({
+      start(c) {
+        chunkController = c;
+      },
+    });
+
+    processor.onaudioprocess = (e) => {
+      if (chunkController === null) return;
+      const pcm = resampleTo16k(e.inputBuffer.getChannelData(0), context.sampleRate);
+      chunkController.enqueue(new Uint8Array(pcm.buffer));
+    };
+
+    const response = await fetch("/api/live-intake", {
+      method: "POST",
+      body,
+      // @ts-expect-error duplex is required for streaming request bodies
+      duplex: "half",
+    });
+
+    if (!response.ok || response.body === null) {
+      processor.disconnect();
+      source.disconnect();
+      stream.getTracks().forEach((t) => t.stop());
+      void context.close();
+      throw new Error("live-unavailable");
+    }
+
+    if (chunkController === null) throw new Error("live-unavailable");
+    liveRefs.current = { stream, context, processor, source, chunkController };
+    modeRef.current = "live";
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+    void (async () => {
+      try {
+        for (;;) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop() ?? "";
+          for (const line of lines) handleLine(line);
+        }
+      } catch {
+        // stream aborted on stop
+      }
+    })();
+  };
+
+  const startUploadFallback = async () => {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const recorder = new MediaRecorder(stream, { mimeType: "audio/webm" });
+    chunksRef.current = [];
+    recorder.ondataavailable = (e) => {
+      if (e.data.size > 0) chunksRef.current.push(e.data);
+    };
+    recorder.onstop = async () => {
+      setProcessing(true);
+      try {
+        const blob = new Blob(chunksRef.current, { type: "audio/webm" });
+        const formData = new FormData();
+        formData.append("audio", blob);
+        const res = await fetch("/api/voice-intake", { method: "POST", body: formData });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error ?? "Voice processing failed");
+        setTranscript(data.transcript ?? "");
+        if (data.extracted) onExtraction(data.extracted as ExtractedCase);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Voice processing failed");
+      } finally {
+        stream.getTracks().forEach((t) => t.stop());
+        setProcessing(false);
+      }
+    };
+    recorderRef.current = recorder;
+    modeRef.current = "upload";
+    recorder.start();
+  };
 
   const startRecording = async () => {
     setError(null);
     setTranscript("");
-    audioChunksRef.current = [];
-
+    setProcessing(true);
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mediaRecorder = new MediaRecorder(stream, { mimeType: "audio/webm" });
-      mediaRecorderRef.current = mediaRecorder;
-
-      mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          audioChunksRef.current.push(event.data);
-        }
-      };
-
-      mediaRecorder.onstop = async () => {
-        const audioBlob = new Blob(audioChunksRef.current, { type: "audio/webm" });
-        await processAudio(audioBlob);
-        stream.getTracks().forEach((track) => track.stop());
-      };
-
-      mediaRecorder.start();
+      try {
+        await startLive();
+      } catch {
+        await startUploadFallback();
+      }
       setRecording(true);
-    } catch (err) {
-      setError(`Microphone access denied: ${err instanceof Error ? err.message : "Unknown error"}`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Microphone unavailable");
+    } finally {
+      setProcessing(false);
     }
   };
 
   const stopRecording = () => {
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
-      mediaRecorderRef.current.stop();
-      setRecording(false);
-    }
-  };
-
-  const processAudio = async (audioBlob: Blob) => {
-    setProcessing(true);
-    setError(null);
-
-    try {
-      const formData = new FormData();
-      formData.append("audio", audioBlob);
-
-      const response = await fetch("/api/voice-intake", {
-        method: "POST",
-        body: formData,
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || "Voice processing failed");
+    if (modeRef.current === "live") {
+      const r = liveRefs.current;
+      if (r !== null) {
+        r.processor.disconnect();
+        r.source.disconnect();
+        r.chunkController.close();
+        void r.context.close();
+        r.stream.getTracks().forEach((t) => t.stop());
+        liveRefs.current = null;
       }
-
-      setTranscript(data.transcript);
-      
-      if (data.extracted) {
-        onExtraction(data.extracted);
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Voice processing failed");
-    } finally {
-      setProcessing(false);
+    } else if (recorderRef.current !== null && recorderRef.current.state !== "inactive") {
+      recorderRef.current.stop();
     }
+    setRecording(false);
   };
 
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-3">
         <button
-          onClick={recording ? stopRecording : startRecording}
+          type="button"
+          onClick={recording ? stopRecording : () => void startRecording()}
           disabled={processing}
           className={`px-4 py-2 rounded-md text-sm font-medium disabled:opacity-50 ${
             recording
@@ -101,10 +208,10 @@ export function VoiceIntake({ onExtraction }: VoiceIntakeProps) {
               : "bg-[var(--primary)] text-white hover:opacity-90"
           }`}
         >
-          {processing ? "⏳ Processing..." : recording ? "⏹️ Stop Recording" : "🎤 Voice Intake"}
+          {processing ? "⏳ Connecting..." : recording ? "⏹️ Stop Recording" : "🎤 Voice Intake (Live)"}
         </button>
         {recording && (
-          <span className="text-xs text-red-600 animate-pulse">● Recording...</span>
+          <span className="text-xs text-red-600 animate-pulse">● Live streaming...</span>
         )}
       </div>
 
@@ -116,7 +223,7 @@ export function VoiceIntake({ onExtraction }: VoiceIntakeProps) {
 
       {transcript.length > 0 && (
         <div className="rounded-md bg-[var(--muted)] p-3">
-          <p className="text-xs font-medium text-gray-600 mb-1">Transcript:</p>
+          <p className="text-xs font-medium text-gray-600 mb-1">Live transcript:</p>
           <p className="text-sm text-gray-800">{transcript}</p>
         </div>
       )}
