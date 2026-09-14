@@ -138,7 +138,7 @@ export function IntakeChat() {
         <input
           value={locality}
           onChange={(e) => setLocality(e.target.value)}
-          placeholder="Area / locality (e.g. HSR Layout, Andheri West) - duplicate cases isi se match hote hain"
+          placeholder="Area / locality (e.g. HSR Layout, Andheri West)"
           className="w-full px-3 py-2 border border-[var(--border)] rounded-md bg-white text-sm"
         />
 

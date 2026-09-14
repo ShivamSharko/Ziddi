@@ -126,7 +126,7 @@ test.describe("Happy Path", () => {
     const aadhaar = freshAadhaar();
     const locality = `DUP-${Date.now()}`;
     const grievance =
-      "Builder ne possession nahi diya aur refund bhi nahi kar raha, 3 saal ho gaye";
+      "Mera landlord ne 50000 deposit wapas nahi diya Bengaluru mein, 1 saal ho gaya, agreement hai mere paas";
 
     await page.goto("/");
     await completeOtp(page, aadhaar);
@@ -144,15 +144,34 @@ test.describe("Happy Path", () => {
     expect(firstResponse.status()).toBe(200);
     await expect(page.getByText(/Case created/)).toBeVisible({ timeout: 10_000 });
 
+    // Navigate to case detail to verify case exists
+    const caseLink = page.getByRole("link", { name: /View case/ });
+    await caseLink.waitFor({ state: "visible", timeout: 5_000 });
+    await caseLink.click();
+    await page.waitForURL(/\/cases\//);
+    await expect(page.locator("h1")).toContainText("Landlord");
+
+    // Go back to homepage for fresh submission
+    await page.goto("/");
+
+    // Complete OTP again
+    await completeOtp(page, aadhaar);
+
+    // Fill form with same details
+    await page.locator("textarea").fill(grievance);
+    await page.locator('input[placeholder*="Area / locality"]').fill(locality);
+
+    // Submit and expect duplicate detection
     const [secondResponse] = await Promise.all([
       page.waitForResponse(isStartPost),
-      startButton.click(),
+      page.getByRole("button", { name: /Start My Case/ }).click(),
     ]);
     expect(secondResponse.status()).toBe(409);
     await expect(page.getByText(/Same case, same location/)).toBeVisible({
       timeout: 10_000,
     });
 
+    // Click "file new anyway" and expect 200
     const [thirdResponse] = await Promise.all([
       page.waitForResponse(isStartPost),
       page.getByRole("button", { name: /Naya case file karna hai anyway/ }).click(),
