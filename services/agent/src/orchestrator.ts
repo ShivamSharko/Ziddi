@@ -3,9 +3,15 @@
  * "Agent drafts, human approves."
  */
 import { ulid } from "ulid";
-import { GeminiClient, IntakeExtract, EvidenceChecklist, Drafter } from "@ziddi/gemini";
-import { Money, Sla, type DomainError, type Result } from "@ziddi/domain";
-import type { CaseOpened, EvidenceAttached, DraftPrepared, DraftApproved } from "@ziddi/domain";
+import { Drafter, EvidenceChecklist, GeminiClient, IntakeExtract } from "@ziddi/gemini";
+import { Money, err, ok } from "@ziddi/domain";
+import type {
+  CaseOpened,
+  DomainError,
+  DraftPrepared,
+  EvidenceAttached,
+  Result,
+} from "@ziddi/domain";
 import type { CaseRepository } from "./repository.js";
 
 export interface StartCaseInput {
@@ -13,30 +19,31 @@ export interface StartCaseInput {
   apiKey: string;
 }
 
+export type DraftStage = "DemandNotice" | "FirstAppeal" | "RtiApplication";
+
 export class ZiddiOrchestrator {
   constructor(private readonly repo: CaseRepository) {}
 
   async startCase(input: StartCaseInput): Promise<Result<string, DomainError>> {
     const client = new GeminiClient(input.apiKey);
     const extractResult = await IntakeExtract.intakeExtract(client, input.rawCitizenText);
-
-    if (extractResult.isErr()) return extractResult;
+    if (extractResult.isErr()) {
+      return err(extractResult.error);
+    }
     const extracted = extractResult.value;
 
-    const caseId = ulid();
-    const eventId = ulid();
-    const nowMs = BigInt(Date.now());
-
-    const amountPaiseResult = extracted.amountRupees !== undefined 
-      ? Money.fromRupees(extracted.amountRupees) 
-      : undefined;
-
-    if (amountPaiseResult && amountPaiseResult.isErr()) {
-      return amountPaiseResult;
+    let amountPaise: bigint | undefined;
+    if (extracted.amountRupees !== undefined) {
+      const moneyResult = Money.fromRupees(extracted.amountRupees);
+      if (moneyResult.isErr()) {
+        return err(moneyResult.error);
+      }
+      amountPaise = moneyResult.value;
     }
 
+    const caseId = ulid();
     const event: CaseOpened = {
-      id: eventId,
+      id: ulid(),
       caseId,
       type: "CaseOpened",
       kind: extracted.kind,
@@ -44,27 +51,38 @@ export class ZiddiOrchestrator {
       city: extracted.city,
       state: extracted.state,
       urgency: extracted.urgency,
-      amountPaise: amountPaiseResult?.value,
-      at: nowMs,
+      amountPaise,
+      at: BigInt(Date.now()),
       actor: { type: "Agent", runId: ulid() },
     };
 
     await this.repo.saveEvent(caseId, event);
-    return { isOk: () => true, isErr: () => false, value: caseId, error: undefined } as any; // Simplified Result return for orchestrator
+    return ok(caseId);
   }
 
-  async getEvidenceChecklist(caseId: string, apiKey: string): Promise<Result<EvidenceChecklist.EvidenceChecklist, DomainError>> {
+  async getEvidenceChecklist(
+    caseId: string,
+    apiKey: string,
+  ): Promise<Result<EvidenceChecklist.EvidenceChecklist, DomainError>> {
     const caseResult = await this.repo.getCase(caseId);
-    if (caseResult.isErr()) return caseResult;
+    if (caseResult.isErr()) {
+      return err(caseResult.error);
+    }
     const state = caseResult.value;
 
     const client = new GeminiClient(apiKey);
     return EvidenceChecklist.evidenceChecklist(client, state.summary, state.kind);
   }
 
-  async attachEvidence(caseId: string, description: string, mimeType: string): Promise<Result<void, DomainError>> {
+  async attachEvidence(
+    caseId: string,
+    description: string,
+    mimeType: string,
+  ): Promise<Result<true, DomainError>> {
     const caseResult = await this.repo.getCase(caseId);
-    if (caseResult.isErr()) return caseResult;
+    if (caseResult.isErr()) {
+      return err(caseResult.error);
+    }
 
     const event: EvidenceAttached = {
       id: ulid(),
@@ -73,18 +91,24 @@ export class ZiddiOrchestrator {
       evidenceId: ulid(),
       mimeType,
       description,
-      hashSha256: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", // Placeholder hash
+      hashSha256: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
       at: BigInt(Date.now()),
       actor: { type: "Citizen", id: "user_1" },
     };
 
     await this.repo.saveEvent(caseId, event);
-    return { isOk: () => true, isErr: () => false, value: undefined, error: undefined } as any;
+    return ok(true);
   }
 
-  async requestDraft(caseId: string, stage: "DemandNotice" | "FirstAppeal" | "RtiApplication", apiKey: string): Promise<Result<string, DomainError>> {
+  async requestDraft(
+    caseId: string,
+    stage: DraftStage,
+    apiKey: string,
+  ): Promise<Result<string, DomainError>> {
     const caseResult = await this.repo.getCase(caseId);
-    if (caseResult.isErr()) return caseResult;
+    if (caseResult.isErr()) {
+      return err(caseResult.error);
+    }
     const state = caseResult.value;
 
     const client = new GeminiClient(apiKey);
@@ -98,8 +122,9 @@ export class ZiddiOrchestrator {
       state: state.state,
       amountRupees: state.amountPaise > 0n ? Number(state.amountPaise) / 100 : undefined,
     });
-
-    if (draftResult.isErr()) return draftResult;
+    if (draftResult.isErr()) {
+      return err(draftResult.error);
+    }
     const draft = draftResult.value;
 
     const draftId = ulid();
@@ -108,7 +133,7 @@ export class ZiddiOrchestrator {
       caseId,
       type: "DraftPrepared",
       draftId,
-      stage,
+      stage: draft.stage,
       language: draft.language,
       body: draft.body,
       confidence: draft.confidence,
@@ -117,7 +142,6 @@ export class ZiddiOrchestrator {
     };
 
     await this.repo.saveEvent(caseId, event);
-    return { isOk: () => true, isErr: () => false, value: draftId, error: undefined } as any;
+    return ok(draftId);
   }
 }
-
