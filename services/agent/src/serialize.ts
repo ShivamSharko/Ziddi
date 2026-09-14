@@ -43,6 +43,7 @@ export interface CaseSummaryDto {
   readonly progress: number;
   readonly percentile: number;
   readonly votes: number;
+  readonly locality: string | null;
   readonly slaOverdue: boolean;
   readonly slaRemainingMs: number;
 }
@@ -92,6 +93,7 @@ export const toCaseSummary = (state: CaseState, nowMs: bigint): CaseSummaryDto =
   progress: stageProgress(state),
   percentile: persistencePercentile(state, nowMs),
   votes: state.votes,
+    locality: state.locality,
   slaOverdue: isSlaOverdue(state, nowMs),
   slaRemainingMs: Number(remainingMs(state, nowMs)),
 });

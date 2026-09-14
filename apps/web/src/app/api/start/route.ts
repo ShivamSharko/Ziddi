@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { ZiddiOrchestrator } from "@ziddi/agent";
 import { citizenToken } from "@/lib/aadhaar";
+import { getOtpService } from "@/lib/otp";
 import { errorMessage, getRepo } from "@/lib/repo";
 
 export async function POST(request: Request) {
@@ -24,18 +25,57 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           error:
-            "Aadhaar verification required (12-digit, checksum-validated). The number is NEVER stored - only a one-way hash (UIDAI-compliant).",
+            "Aadhaar verification required (12-digit, checksum-validated). The number is NEVER stored - only a one-way hash.",
         },
         { status: 400 },
       );
     }
+    if (!getOtpService().isVerified(token)) {
+      return NextResponse.json(
+        { error: "Complete Aadhaar OTP verification first" },
+        { status: 401 },
+      );
+    }
+
+    const forceNew = body.forceNew === true;
+    const locality =
+      typeof body.locality === "string" && body.locality.trim().length > 0
+        ? body.locality.trim()
+        : undefined;
 
     const orchestrator = new ZiddiOrchestrator(getRepo());
+
+    const analysis = await orchestrator.analyze(rawCitizenText, apiKey);
+    if (analysis.isErr()) {
+      return NextResponse.json({ error: errorMessage(analysis.error) }, { status: 500 });
+    }
+    const extracted = analysis.value;
+
+    if (!forceNew) {
+      const duplicates = await orchestrator.findDuplicates(extracted.kind, extracted.city, locality);
+      if (duplicates.length > 0) {
+        return NextResponse.json(
+          {
+            duplicates: duplicates.map((d) => ({
+              id: d.id,
+              summary: d.summary,
+              votes: d.votes,
+              locality: d.locality,
+              city: d.city,
+            })),
+          },
+          { status: 409 },
+        );
+      }
+    }
+
     const result = await orchestrator.startCase({
       rawCitizenText,
       apiKey,
       anonymous: body.anonymous === true,
       citizenToken: token,
+      locality,
+      extraction: extracted,
     });
     if (result.isErr()) {
       const status = result.error.kind === "ValidationFailed" ? 400 : 500;

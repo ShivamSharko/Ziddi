@@ -7,6 +7,7 @@ import { Drafter, EvidenceChecklist, GeminiClient, IntakeExtract } from "@ziddi/
 import { Money, domainError, err, ok } from "@ziddi/domain";
 import type {
   CaseOpened,
+  CaseState,
   CommunityUpvote,
   DomainError,
   DraftApproved,
@@ -22,6 +23,8 @@ export interface StartCaseInput {
   apiKey: string;
   anonymous?: boolean;
   citizenToken: string;
+  locality?: string;
+  extraction?: IntakeExtract.IntakeExtract;
 }
 
 export interface EvidenceItemInput {
@@ -36,13 +39,42 @@ export type DraftStage = "DemandNotice" | "FirstAppeal" | "RtiApplication";
 export class ZiddiOrchestrator {
   constructor(private readonly repo: CaseRepository) {}
 
+  async analyze(
+    rawCitizenText: string,
+    apiKey: string,
+  ): Promise<Result<IntakeExtract.IntakeExtract, DomainError>> {
+    const client = new GeminiClient(apiKey);
+    return IntakeExtract.intakeExtract(client, rawCitizenText);
+  }
+
+  async findDuplicates(
+    kind: string,
+    city: string,
+    locality?: string,
+  ): Promise<ReadonlyArray<CaseState>> {
+    const all = await this.repo.listCases();
+    const norm = (s: string) => s.trim().toLowerCase();
+    return all.filter((c) => {
+      if (c.status === "Resolved" || c.status === "Withdrawn") return false;
+      if (c.kind !== kind) return false;
+      if (norm(c.city) !== norm(city)) return false;
+      if (locality !== undefined && locality.length > 0) {
+        return c.locality !== null && norm(c.locality) === norm(locality);
+      }
+      return c.locality === null;
+    });
+  }
+
   async startCase(input: StartCaseInput): Promise<Result<string, DomainError>> {
-    const client = new GeminiClient(input.apiKey);
-    const extractResult = await IntakeExtract.intakeExtract(client, input.rawCitizenText);
-    if (extractResult.isErr()) {
-      return err(extractResult.error);
+    let extracted = input.extraction;
+    if (extracted === undefined) {
+      const client = new GeminiClient(input.apiKey);
+      const extractResult = await IntakeExtract.intakeExtract(client, input.rawCitizenText);
+      if (extractResult.isErr()) {
+        return err(extractResult.error);
+      }
+      extracted = extractResult.value;
     }
-    const extracted = extractResult.value;
 
     if (!extracted.isGenuineGrievance) {
       return err(
@@ -87,6 +119,7 @@ export class ZiddiOrchestrator {
       summary: extracted.summary,
       city: extracted.city,
       state: extracted.state,
+      locality: input.locality,
       urgency: extracted.urgency,
       amountPaise,
       anonymous: input.anonymous,

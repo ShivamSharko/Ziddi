@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 interface CaseSummary {
   id: string;
   kind: string;
+  locality: string | null;
   summary: string;
   city: string;
   urgency: string;
@@ -76,7 +77,9 @@ export function CaseList() {
               </div>
               <p className="font-medium mt-1">{c.summary}</p>
               <p className="text-sm text-gray-500 mt-1">
-                {c.kind} · {c.city}
+                {c.kind} ·{" "}
+                {c.locality !== null && c.locality.length > 0 ? `${c.locality}, ` : ""}
+                {c.city}
               </p>
               <div className="mt-2 h-1.5 w-full rounded-full bg-[var(--muted)]">
                 <div

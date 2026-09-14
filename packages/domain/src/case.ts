@@ -43,6 +43,7 @@ export interface CaseState {
   readonly votes: number;
   readonly voters: ReadonlyArray<string>;
   readonly citizenToken: string | null;
+  readonly locality: string | null;
   readonly currentDraftId: string | null;
   readonly filedReference: string | null;
   readonly events: ReadonlyArray<DomainEvent>;
@@ -64,6 +65,7 @@ export const initialState = (): CaseState => ({
   votes: 0,
   voters: [],
   citizenToken: null,
+    locality: null,
   currentDraftId: null,
   filedReference: null,
   events: [],

@@ -32,6 +32,7 @@ export const caseOpenedSchema = baseSchema.extend({
   urgency: z.enum(["Emergency", "High", "Standard", "Low"]),
   anonymous: z.boolean().optional(),
   citizenToken: z.string().length(64).optional(),
+  locality: z.string().optional(),
   amountPaise: z.bigint().optional(),
 });
 

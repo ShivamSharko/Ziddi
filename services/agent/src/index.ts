@@ -5,4 +5,5 @@ export {
   type DraftStage,
   type EvidenceItemInput,
 } from "./orchestrator";
+export { OtpService, ConsoleOtpAdapter, type OtpAdapter } from "./otp";
 export * from "./serialize";

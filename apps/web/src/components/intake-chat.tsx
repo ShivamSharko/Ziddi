@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { isValidAadhaar } from "@ziddi/domain";
+import { AadhaarOtp } from "./aadhaar-otp";
 
 type Step = "idle" | "thinking" | "success" | "error";
 
@@ -12,21 +12,22 @@ interface FestivalTrigger {
   suggestion: string;
 }
 
-interface CaseListItem {
+interface DuplicateCase {
   id: string;
-  kind: string;
   summary: string;
-  city: string;
   votes: number;
+  locality: string | null;
+  city: string;
 }
 
 export function IntakeChat() {
   const [text, setText] = useState("");
-  const [aadhaar, setAadhaar] = useState("");
+  const [locality, setLocality] = useState("");
   const [step, setStep] = useState<Step>("idle");
   const [anonymous, setAnonymous] = useState(false);
   const [triggers, setTriggers] = useState<FestivalTrigger[]>([]);
-  const [similar, setSimilar] = useState<CaseListItem[]>([]);
+  const [verifiedAadhaar, setVerifiedAadhaar] = useState<string | null>(null);
+  const [duplicates, setDuplicates] = useState<DuplicateCase[] | null>(null);
   const [result, setResult] = useState<{ caseId?: string; error?: string } | null>(null);
 
   useEffect(() => {
@@ -36,39 +37,61 @@ export function IntakeChat() {
       .catch(() => setTriggers([]));
   }, []);
 
-  const aadhaarValid = isValidAadhaar(aadhaar);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!text.trim() || !aadhaarValid) return;
+  const submit = async (forceNew: boolean) => {
+    if (verifiedAadhaar === null) {
+      setResult({ error: "Pehle Aadhaar + OTP verification complete karo" });
+      setStep("error");
+      return;
+    }
     setStep("thinking");
     setResult(null);
-    setSimilar([]);
+    setDuplicates(null);
 
     try {
       const res = await fetch("/api/start", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ rawCitizenText: text, anonymous, aadhaar }),
+        body: JSON.stringify({
+          rawCitizenText: text,
+          anonymous,
+          aadhaar: verifiedAadhaar,
+          locality,
+          forceNew,
+        }),
       });
       const data = await res.json();
+      if (res.status === 409) {
+        setDuplicates(data.duplicates ?? []);
+        setStep("idle");
+        return;
+      }
       if (!res.ok) {
         throw new Error(data.error || "Failed to start case");
       }
       setResult({ caseId: data.caseId });
       setStep("success");
+    } catch (err) {
+      setResult({ error: err instanceof Error ? err.message : "Unknown error" });
+      setStep("error");
+    }
+  };
 
-      const detailRes = await fetch(`/api/cases/${data.caseId}`);
-      const detailData = await detailRes.json();
-      const created = detailData.case as CaseListItem;
-      const listRes = await fetch("/api/cases");
-      const listData = await listRes.json();
-      const all: CaseListItem[] = listData.cases ?? [];
-      setSimilar(
-        all
-          .filter((c) => c.id !== created.id && c.city === created.city && c.kind === created.kind)
-          .slice(0, 3),
-      );
+  const supportCase = async (id: string) => {
+    if (verifiedAadhaar === null) return;
+    setStep("thinking");
+    setResult(null);
+    try {
+      const res = await fetch(`/api/cases/${id}/upvote`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ aadhaar: verifiedAadhaar }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(typeof data.error === "string" ? data.error : "Upvote failed");
+      }
+      setResult({ caseId: id });
+      setStep("success");
     } catch (err) {
       setResult({ error: err instanceof Error ? err.message : "Unknown error" });
       setStep("error");
@@ -98,7 +121,13 @@ export function IntakeChat() {
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="space-y-3">
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          void submit(false);
+        }}
+        className="space-y-3"
+      >
         <textarea
           value={text}
           onChange={(e) => setText(e.target.value)}
@@ -106,33 +135,14 @@ export function IntakeChat() {
           className="w-full h-32 px-4 py-3 border border-[var(--border)] rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[var(--primary)] resize-none"
           disabled={step === "thinking"}
         />
+        <input
+          value={locality}
+          onChange={(e) => setLocality(e.target.value)}
+          placeholder="Area / locality (e.g. HSR Layout, Andheri West) - duplicate cases isi se match hote hain"
+          className="w-full px-3 py-2 border border-[var(--border)] rounded-md bg-white text-sm"
+        />
 
-        <div className="space-y-1">
-          <label className="text-xs font-medium text-gray-600" htmlFor="aadhaar">
-            Aadhaar verification (anti-fake) — number is NEVER stored, only a one-way hash
-          </label>
-          <input
-            id="aadhaar"
-            inputMode="numeric"
-            value={aadhaar}
-            onChange={(e) => setAadhaar(e.target.value.replace(/[^\d\s]/g, "").slice(0, 14))}
-            placeholder="12-digit Aadhaar number"
-            className={`w-full px-3 py-2 border rounded-md bg-white text-sm focus:outline-none focus:ring-2 ${
-              aadhaar.length === 0
-                ? "border-[var(--border)] focus:ring-[var(--primary)]"
-                : aadhaarValid
-                  ? "border-green-400 focus:ring-green-400"
-                  : "border-red-300 focus:ring-red-300"
-            }`}
-          />
-          {aadhaar.length > 0 && (
-            <p className={`text-xs ${aadhaarValid ? "text-green-600" : "text-red-500"}`}>
-              {aadhaarValid
-                ? "✅ Valid Aadhaar checksum (Verhoeff)"
-                : "❌ Invalid: 12 digits required, checksum failing"}
-            </p>
-          )}
-        </div>
+        <AadhaarOtp verified={verifiedAadhaar !== null} onVerified={(a) => setVerifiedAadhaar(a)} />
 
         <label className="flex items-center gap-2 text-xs text-gray-600 select-none">
           <input
@@ -147,11 +157,11 @@ export function IntakeChat() {
         <div className="flex items-center justify-between">
           <div className="text-xs text-gray-500">
             {step === "thinking" && "⏳ Gemini is analyzing..."}
-            {step === "idle" && "🇮🇳 English, Hindi, or Hinglish — sab chalega"}
+            {step === "idle" && "🇮 English, Hindi, or Hinglish — sab chalega"}
           </div>
           <button
             type="submit"
-            disabled={step === "thinking" || !text.trim() || !aadhaarValid}
+            disabled={step === "thinking" || !text.trim() || verifiedAadhaar === null}
             className="px-5 py-2 bg-[var(--primary)] text-white rounded-md hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
           >
             {step === "thinking" ? "Starting case..." : "Start My Case →"}
@@ -159,15 +169,50 @@ export function IntakeChat() {
         </div>
       </form>
 
+      {duplicates !== null && duplicates.length > 0 && (
+        <div className="rounded-lg border border-blue-300 bg-blue-50 p-4 space-y-3">
+          <p className="text-sm font-semibold text-blue-900">
+            🤝 Same case, same location already exists — community power ikattha karo:
+          </p>
+          <ul className="space-y-2">
+            {duplicates.map((d) => (
+              <li
+                key={d.id}
+                className="flex items-center justify-between gap-2 text-xs text-blue-800"
+              >
+                <span className="truncate">
+                  {d.summary}
+                  {d.locality !== null ? ` · ${d.locality}` : ""} · 👍 {d.votes}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => void supportCase(d.id)}
+                  className="px-3 py-1 bg-green-600 text-white rounded shrink-0"
+                >
+                  Support
+                </button>
+              </li>
+            ))}
+          </ul>
+          <button
+            type="button"
+            onClick={() => void submit(true)}
+            className="text-xs text-blue-700 underline"
+          >
+            Naya case file karna hai anyway? Click here
+          </button>
+        </div>
+      )}
+
       {result !== null && (
         <div
-          className={`p-4 rounded-lg space-y-3 ${
+          className={`p-4 rounded-lg ${
             step === "error" ? "bg-red-50 border border-red-200" : "bg-green-50 border border-green-200"
           }`}
         >
           {result.caseId !== undefined && (
             <>
-              <p className="text-sm font-medium text-green-900">✅ Case created!</p>
+              <p className="text-sm font-medium text-green-900">✅ Case created / supported!</p>
               <p className="text-xs text-green-700 mt-1">
                 Case ID: <code className="bg-white px-1 py-0.5 rounded">{result.caseId}</code>
               </p>
@@ -180,25 +225,6 @@ export function IntakeChat() {
             </>
           )}
           {result.error !== undefined && <p className="text-sm text-red-700">❌ {result.error}</p>}
-
-          {similar.length > 0 && (
-            <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 space-y-2">
-              <p className="text-xs font-semibold text-blue-800">
-                🤝 {similar.length} similar active case(s) in your city — support them instead of
-                filing duplicates:
-              </p>
-              <ul className="space-y-1">
-                {similar.map((c) => (
-                  <li key={c.id} className="text-xs text-blue-700 flex justify-between gap-2">
-                    <a href={`/cases/${c.id}`} className="hover:underline truncate">
-                      {c.summary}
-                    </a>
-                    <span className="shrink-0">👍 {c.votes}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
         </div>
       )}
     </div>

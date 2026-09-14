@@ -17,6 +17,7 @@ export const intakeExtractSchema = z.object({
   summary: z.string().min(10).max(500),
   city: z.string().min(2),
   state: z.string().min(2),
+  locality: z.string().optional(),
   urgency: z.enum(["Emergency", "High", "Standard", "Low"]),
   amountRupees: z.number().nonnegative().optional(),
   detectedLanguage: z.enum(["en", "hi", "en-IN-hinglish"]),
@@ -44,6 +45,8 @@ Urgency:
 - High: money > 10000 INR pending, housing at risk, legal deadlines
 - Standard: typical delays, smaller amounts
 - Low: minor inconvenience
+
+- locality: the area/locality/street within the city if mentioned (e.g. "HSR Layout", "Andheri West"). Omit if not mentioned.
 
 GUARDRAILS (critical):
 - If the input is NOT a genuine civic/consumer grievance (abuse, sexual content, gibberish, test strings, chitchat, questions, marketing, jokes), set isGenuineGrievance to false and give a short rejectionReason explaining why in simple Hinglish-English.
