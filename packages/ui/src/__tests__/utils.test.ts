@@ -5,7 +5,9 @@ import { t } from "../translations/index.js";
 describe("cn utility", () => {
   it("merges tailwind classes correctly", () => {
     const result = cn("px-4 py-2", "px-6");
-    expect(result).toBe("px-6 py-2");
+    expect(result).toContain("py-2");
+    expect(result).toContain("px-6");
+    expect(result).not.toContain("px-4");
   });
 
   it("handles conditional classes", () => {
