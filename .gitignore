@@ -4,11 +4,31 @@ node_modules/
 # Build artifacts
 dist/
 .next/
+out/
 .turbo/
+coverage/
 
 # Environment
 .env
 .env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
 
 # Logs
 *.log
+npm-debug.log*
+pnpm-debug.log*
+
+# Test
+*.test.ts.bak
+
+# Secrets
+*.pem
+*.key
