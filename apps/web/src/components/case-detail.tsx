@@ -29,10 +29,10 @@ interface EvidenceDto {
 interface CaseDetailData {
   id: string;
   kind: string;
-  locality: string | null;
   summary: string;
   city: string;
   state: string;
+  locality: string | null;
   urgency: string;
   status: string;
   amountRupees: number;
@@ -49,6 +49,12 @@ interface CaseDetailData {
   pendingDraft: PendingDraft | null;
 }
 
+interface PendingFile {
+  name: string;
+  dataUrl: string;
+  desc: string;
+}
+
 const DAY_MS = 86_400_000;
 const STAGES = ["DemandNotice", "FirstAppeal", "RtiApplication"] as const;
 type Stage = (typeof STAGES)[number];
@@ -57,7 +63,8 @@ export function CaseDetailView({ caseId }: { caseId: string }) {
   const [detail, setDetail] = useState<CaseDetailData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [evidenceDesc, setEvidenceDesc] = useState("");
+  const [textEvidenceDesc, setTextEvidenceDesc] = useState("");
+  const [pendingFiles, setPendingFiles] = useState<PendingFile[]>([]);
   const [upvoteDone, setUpvoteDone] = useState(false);
   const [upvoteMsg, setUpvoteMsg] = useState<string | null>(null);
   const [stage, setStage] = useState<Stage>("DemandNotice");
@@ -97,10 +104,57 @@ export function CaseDetailView({ caseId }: { caseId: string }) {
     }
   };
 
+  const onFilesChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? []);
+    e.target.value = "";
+    const remaining = 6 - pendingFiles.length;
+    const toAdd = files.slice(0, Math.max(0, remaining));
+    for (const file of toAdd) {
+      const reader = new FileReader();
+      reader.onload = () => {
+        if (typeof reader.result === "string") {
+          setPendingFiles((prev) => [
+            ...prev,
+            {
+              name: file.name,
+              dataUrl: reader.result as string,
+              desc: file.name.replace(/\.[^.]+$/, ""),
+            },
+          ]);
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   const addEvidence = () => {
-    if (evidenceDesc.trim().length < 3) return;
-    void post("evidence", { items: [{ description: evidenceDesc.trim(), mimeType: "text/plain" }] });
-    setEvidenceDesc("");
+    const items: Array<{
+      description: string;
+      mimeType: string;
+      dataUrl?: string;
+      fileName?: string;
+    }> = [];
+
+    for (const f of pendingFiles) {
+      const mimeType =
+        f.dataUrl.split(";")[0]?.replace("data:", "") ?? "application/octet-stream";
+      items.push({
+        description: f.desc.trim().length >= 3 ? f.desc.trim() : f.name,
+        mimeType,
+        dataUrl: f.dataUrl,
+        fileName: f.name,
+      });
+    }
+
+    if (items.length === 0 && textEvidenceDesc.trim().length >= 3) {
+      items.push({ description: textEvidenceDesc.trim(), mimeType: "text/plain" });
+    }
+
+    if (items.length === 0) return;
+
+    void post("evidence", { items });
+    setTextEvidenceDesc("");
+    setPendingFiles([]);
   };
 
   const postUpvote = async (aadhaar: string) => {
@@ -133,7 +187,7 @@ export function CaseDetailView({ caseId }: { caseId: string }) {
   const daysActive = Math.max(1, Math.floor((Date.now() - detail.openedAtMs) / DAY_MS));
   const approvals = detail.events.filter((e) => e.type === "DraftApproved").length;
 
-  const shareText = `Ziddi case ${detail.id.slice(0, 8)}: ${detail.summary} | ${detail.city} | 👍 ${detail.votes} supports | SLA ${daysLeft}d left. Family se discuss karo: ${window.location.href}`;
+  const shareText = `Ziddi case ${detail.id.slice(0, 8)}: ${detail.summary} | ${detail.city} | 👍 ${detail.votes} supports | SLA ${daysLeft}d left. Family se discuss karo: ${typeof window !== "undefined" ? window.location.href : ""}`;
 
   return (
     <div className="space-y-6">
@@ -152,9 +206,13 @@ export function CaseDetailView({ caseId }: { caseId: string }) {
         </div>
         <h1 className="text-2xl font-bold">{detail.summary}</h1>
         <p className="text-sm text-gray-500">
-          {detail.locality !== null && detail.locality !== undefined && detail.locality.length > 0 ? `${detail.locality}, ` : ""}
+          {detail.locality !== null && detail.locality.length > 0
+            ? `${detail.locality}, `
+            : ""}
           {detail.city}, {detail.state}
-          {detail.amountRupees > 0 ? ` · ₹${detail.amountRupees.toLocaleString("en-IN")}` : ""}
+          {detail.amountRupees > 0
+            ? ` · ₹${detail.amountRupees.toLocaleString("en-IN")}`
+            : ""}
         </p>
         <div>
           <div className="flex justify-between text-xs text-gray-500 mb-1">
@@ -207,7 +265,7 @@ export function CaseDetailView({ caseId }: { caseId: string }) {
         ) : (
           <AadhaarOtp verified={false} onVerified={(aadhaar) => void postUpvote(aadhaar)} />
         )}
-        {upvoteMsg !== null && <p className="text-xs text-gray-600">{upvoteMsg}</p>}
+        {upvoteMsg !== null && <p className="text-xs text-red-500">{upvoteMsg}</p>}
       </section>
 
       <section
@@ -271,7 +329,7 @@ export function CaseDetailView({ caseId }: { caseId: string }) {
                   key={ev.evidenceId}
                   className="rounded border border-[var(--border)] overflow-hidden bg-white"
                 >
-                  {ev.dataUrl !== undefined ? (
+                  {ev.dataUrl !== undefined && ev.dataUrl.length > 0 ? (
                     <img
                       src={ev.dataUrl}
                       alt={ev.description}
@@ -290,18 +348,73 @@ export function CaseDetailView({ caseId }: { caseId: string }) {
             </div>
           )}
 
+          {pendingFiles.length > 0 && (
+            <div className="space-y-2 border border-dashed border-[var(--border)] rounded-md p-3">
+              <p className="text-xs font-medium text-gray-600">
+                Ready to upload ({pendingFiles.length}/6):
+              </p>
+              {pendingFiles.map((f, i) => (
+                <div key={`${f.name}-${i}`} className="flex items-center gap-2">
+                  <img
+                    src={f.dataUrl}
+                    alt={f.name}
+                    className="h-10 w-10 rounded object-cover border border-[var(--border)]"
+                  />
+                  <input
+                    value={f.desc}
+                    onChange={(e) =>
+                      setPendingFiles((prev) =>
+                        prev.map((p, j) => (j === i ? { ...p, desc: e.target.value } : p)),
+                      )
+                    }
+                    placeholder="Description (3+ chars)"
+                    className="flex-1 px-2 py-1 border border-[var(--border)] rounded-md bg-white text-xs"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setPendingFiles((prev) => prev.filter((_, j) => j !== i))}
+                    className="text-red-500 text-xs px-2"
+                    title="Remove"
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
           <input
-            value={evidenceDesc}
-            onChange={(e) => setEvidenceDesc(e.target.value)}
-            placeholder="Text-only evidence description"
+            value={textEvidenceDesc}
+            onChange={(e) => setTextEvidenceDesc(e.target.value)}
+            placeholder="Text-only evidence description (if not uploading files)"
             className="w-full px-3 py-2 border border-[var(--border)] rounded-md bg-white text-sm"
           />
+          <input
+            type="file"
+            accept="image/*"
+            multiple
+            onChange={onFilesChange}
+            disabled={pendingFiles.length >= 6}
+            className="block w-full text-xs text-gray-500 file:mr-2 file:px-3 file:py-1.5 file:rounded-md file:border-0 file:bg-[var(--primary)]/10 file:text-[var(--primary)] file:text-xs file:font-medium"
+          />
+          <p className="text-[11px] text-gray-500">
+            Select up to {6 - pendingFiles.length} more images. Describe each before uploading.
+          </p>
           <button
             onClick={addEvidence}
-            disabled={busy || evidenceDesc.trim().length < 3}
+            disabled={
+              busy ||
+              (pendingFiles.length === 0 && textEvidenceDesc.trim().length < 3)
+            }
             className="px-4 py-2 bg-[var(--primary)] text-white rounded-md text-sm disabled:opacity-50"
           >
-            Add evidence
+            Add evidence (
+            {pendingFiles.length > 0
+              ? pendingFiles.length
+              : textEvidenceDesc.trim().length >= 3
+                ? 1
+                : 0}
+            )
           </button>
         </section>
 
