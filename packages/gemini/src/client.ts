@@ -1,10 +1,9 @@
 /**
  * Typed Gemini client. Structured outputs enforced via Zod.
- * Model registry with automatic fallback: Google renames model ids often,
- * so a 404 NOT_FOUND on one id retries the next known-good id.
- * Sept 2026 pricing: 3.5 Flash ~$0.50/$3.00 per 1M in/out; 3.1 Pro ~$2/$12.
- * NOTE: Gemini 3 Pro ids require the Interactions API on v1beta; generateContent
- * serves the Flash family. Drafts therefore run on Flash with Pro as best-effort.
+ * Failure strategy:
+ *  - 404 NOT_FOUND        -> model id invalid here: switch model immediately
+ *  - 429 RESOURCE_EXHAUSTED -> daily per-model quota spent: switch model immediately
+ *  - 503 UNAVAILABLE      -> capacity burst: escalating backoff retries, then switch
  */
 import { GoogleGenAI } from "@google/genai";
 import { ok, err, Result } from "@ziddi/domain";
@@ -14,9 +13,27 @@ import { z, type ZodSchema } from "zod";
 export type GeminiModel = "gemini-3.5-flash" | "gemini-3.6-flash" | "gemini-3.1-pro";
 
 const MODEL_FALLBACKS: Record<GeminiModel, ReadonlyArray<string>> = {
-  "gemini-3.5-flash": ["gemini-3.6-flash", "gemini-3.8-flash", "gemini-3.7-flash"],
-  "gemini-3.6-flash": ["gemini-3.7-flash", "gemini-3.8-flash", "gemini-3.5-flash"],
-  "gemini-3.1-pro": ["gemini-3.1-pro-preview", "gemini-3.5-flash", "gemini-3.6-flash", "gemini-3.8-flash"],
+  "gemini-3.5-flash": [
+    "gemini-3.6-flash",
+    "gemini-3.8-flash",
+    "gemini-3.7-flash",
+    "gemini-3-flash-preview",
+    "gemini-3.1-flash-lite-preview",
+  ],
+  "gemini-3.6-flash": [
+    "gemini-3.5-flash",
+    "gemini-3.8-flash",
+    "gemini-3.7-flash",
+    "gemini-3-flash-preview",
+    "gemini-3.1-flash-lite-preview",
+  ],
+  "gemini-3.1-pro": [
+    "gemini-3.1-pro-preview",
+    "gemini-3.5-flash",
+    "gemini-3.6-flash",
+    "gemini-3.8-flash",
+    "gemini-3-flash-preview",
+  ],
 };
 
 export interface CallOptions {
@@ -27,15 +44,22 @@ export interface CallOptions {
 }
 
 const DEFAULT_RETRIES = 2;
+const MAX_UNAVAILABLE_RETRIES = 5;
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 const isNotFound = (error: unknown): boolean => {
   const e = error as { status?: number; code?: number; message?: string };
+  return e?.status === 404 || e?.code === 404 || String(e?.message ?? "").includes("NOT_FOUND");
+};
+
+const isResourceExhausted = (error: unknown): boolean => {
+  const e = error as { status?: number; code?: number; message?: string };
   return (
-    e?.status === 404 ||
-    e?.code === 404 ||
-    String(e?.message ?? "").includes("NOT_FOUND")
+    e?.status === 429 ||
+    e?.code === 429 ||
+    String(e?.message ?? "").includes("RESOURCE_EXHAUSTED") ||
+    String(e?.message ?? "").toLowerCase().includes("quota")
   );
 };
 
@@ -66,7 +90,11 @@ export class GeminiClient {
     let lastError: unknown = null;
 
     for (const model of candidates) {
-      for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      let attempt = 0;
+      let unavailable = 0;
+      let done = false;
+
+      while (!done) {
         try {
           const response = await this.ai.models.generateContent({
             model,
@@ -84,6 +112,8 @@ export class GeminiClient {
           const raw = response.text;
           if (raw === undefined || raw.length === 0) {
             lastError = new Error("Empty response");
+            attempt += 1;
+            if (attempt > maxRetries) done = true;
             continue;
           }
 
@@ -91,17 +121,32 @@ export class GeminiClient {
           const validated = schema.safeParse(parsed);
           if (!validated.success) {
             lastError = validated.error;
+            attempt += 1;
+            if (attempt > maxRetries) done = true;
             continue;
           }
           return ok(validated.data);
         } catch (error) {
           lastError = error;
-          if (isNotFound(error)) break;
-          if (isUnavailable(error) && attempt < Math.max(maxRetries, 4)) {
-            await sleep(Math.pow(2, attempt) * 1000);
+          if (isNotFound(error) || isResourceExhausted(error)) {
+            done = true;
             continue;
           }
-          if (attempt < maxRetries) await sleep(Math.pow(2, attempt) * 250);
+          if (isUnavailable(error)) {
+            unavailable += 1;
+            if (unavailable > MAX_UNAVAILABLE_RETRIES) {
+              done = true;
+              continue;
+            }
+            await sleep(unavailable * 5000);
+            continue;
+          }
+          attempt += 1;
+          if (attempt > maxRetries) {
+            done = true;
+            continue;
+          }
+          await sleep(Math.pow(2, attempt) * 250);
         }
       }
     }
@@ -118,7 +163,11 @@ export class GeminiClient {
     let lastError: unknown = null;
 
     for (const model of candidates) {
-      for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      let attempt = 0;
+      let unavailable = 0;
+      let done = false;
+
+      while (!done) {
         try {
           const response = await this.ai.models.generateContent({
             model,
@@ -133,17 +182,32 @@ export class GeminiClient {
           const text = response.text;
           if (text === undefined) {
             lastError = new Error("Empty response");
+            attempt += 1;
+            if (attempt > maxRetries) done = true;
             continue;
           }
           return ok(text);
         } catch (error) {
           lastError = error;
-          if (isNotFound(error)) break;
-          if (isUnavailable(error) && attempt < Math.max(maxRetries, 4)) {
-            await sleep(Math.pow(2, attempt) * 1000);
+          if (isNotFound(error) || isResourceExhausted(error)) {
+            done = true;
             continue;
           }
-          if (attempt < maxRetries) await sleep(Math.pow(2, attempt) * 250);
+          if (isUnavailable(error)) {
+            unavailable += 1;
+            if (unavailable > MAX_UNAVAILABLE_RETRIES) {
+              done = true;
+              continue;
+            }
+            await sleep(unavailable * 5000);
+            continue;
+          }
+          attempt += 1;
+          if (attempt > maxRetries) {
+            done = true;
+            continue;
+          }
+          await sleep(Math.pow(2, attempt) * 250);
         }
       }
     }
