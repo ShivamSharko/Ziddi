@@ -34,7 +34,7 @@ export interface EvidenceItemInput {
   fileName?: string;
 }
 
-export type DraftStage = "DemandNotice" | "FirstAppeal" | "RtiApplication";
+export type DraftStage = "DemandNotice" | "FirstAppeal" | "SecondAppeal" | "RtiApplication";
 
 export class ZiddiOrchestrator {
   constructor(private readonly repo: CaseRepository) {}

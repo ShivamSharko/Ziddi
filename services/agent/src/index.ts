@@ -7,4 +7,5 @@ export {
 } from "./orchestrator";
 export { OtpService, ConsoleOtpAdapter, type OtpAdapter } from "./otp";
 export { JsonFileEventStore } from "./db/json-store";
+export { checkAndEscalate, type EscalationResult } from "./escalation";
 export * from "./serialize";

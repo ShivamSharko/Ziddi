@@ -1,17 +1,18 @@
 import { CaseList } from "@/components/case-list";
+import { EscalationButton } from "@/components/escalation-button";
 
 export default function CasesPage() {
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold">My Cases</h1>
-        <a
-          href="/"
-          className="px-4 py-2 bg-[var(--primary)] text-white rounded-md hover:opacity-90 text-sm"
-        >
-          + New Case
-        </a>
+      <div>
+        <h1 className="text-2xl font-bold">Your Cases</h1>
+        <p className="text-sm text-gray-500 mt-1">
+          Track all your active grievances and their status
+        </p>
       </div>
+
+      <EscalationButton />
+
       <CaseList />
     </div>
   );

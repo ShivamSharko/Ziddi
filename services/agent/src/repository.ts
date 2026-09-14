@@ -37,6 +37,10 @@ export class CaseRepository {
     return rehydrate(events);
   }
 
+  async listCaseIds(): Promise<ReadonlyArray<string>> {
+    return this.store.listCaseIds();
+  }
+
   async saveEvent(caseId: string, event: DomainEvent): Promise<void> {
     await this.store.append(caseId, event);
   }
