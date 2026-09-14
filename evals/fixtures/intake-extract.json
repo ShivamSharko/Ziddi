@@ -88,7 +88,7 @@
     "input": "Gurgaon sector 45 mein 2 hafte se paani nahi aa raha, tanker bhi nahi aa raha. Gurgaon Haryana.",
     "expected": {
       "kind": "CivicWater",
-      "city": "Gurugram",
+      "city": "Gurgaon",
       "state": "Haryana",
       "isGenuineGrievance": true
     }
