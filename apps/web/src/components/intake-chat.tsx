@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { AadhaarOtp } from "./aadhaar-otp";
 import { VoiceIntake } from "./voice-intake";
+import { useLang } from "./language-provider";
 
 type Step = "idle" | "thinking" | "success" | "error";
 
@@ -120,6 +121,7 @@ export function IntakeChat() {
     setText(data.summary);
   };
 
+  const { t } = useLang();
   const activeTrigger = triggers[0];
 
   return (
@@ -153,14 +155,14 @@ export function IntakeChat() {
         <textarea
           value={text}
           onChange={(e) => setText(e.target.value)}
-          placeholder="e.g. 'Mera landlord Bengaluru mein 60000 deposit wapas nahi de raha, 2 mahine ho gaye. Rental agreement hai mere paas.'"
+          placeholder={t("intake.placeholder")}
           className="w-full h-32 px-4 py-3 border border-[var(--border)] rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[var(--primary)] resize-none"
           disabled={step === "thinking"}
         />
         <input
           value={locality}
           onChange={(e) => setLocality(e.target.value)}
-          placeholder="Area / locality (e.g. HSR Layout, Andheri West)"
+          placeholder={t("intake.locality")}
           className="w-full px-3 py-2 border border-[var(--border)] rounded-md bg-white text-sm"
         />
 
@@ -210,15 +212,15 @@ export function IntakeChat() {
 
         <div className="flex items-center justify-between">
           <div className="text-xs text-gray-500">
-            {step === "thinking" && "⏳ Gemini is analyzing..."}
-            {step === "idle" && "🇮 English, Hindi, or Hinglish — sab chalega"}
+            {step === "thinking" && t("intake.analyzing")}
+            {step === "idle" && t("intake.idle")}
           </div>
           <button
             type="submit"
             disabled={step === "thinking" || !text.trim() || verifiedAadhaar === null}
             className="px-5 py-2 bg-[var(--primary)] text-white rounded-md hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
           >
-            {step === "thinking" ? "Starting case..." : "Start My Case →"}
+            {step === "thinking" ? t("intake.thinking") : t("intake.submit")}
           </button>
         </div>
       </form>

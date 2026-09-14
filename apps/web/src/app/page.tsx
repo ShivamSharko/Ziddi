@@ -1,16 +1,11 @@
 import { IntakeChat } from "@/components/intake-chat";
+import { HeroText } from "@/components/site-chrome-text";
 
 export default function HomePage() {
   return (
     <div className="space-y-8">
       <section className="space-y-4">
-        <h1 className="text-4xl font-bold tracking-tight">
-          Your grievance won&apos;t get solved until someone <span className="text-[var(--primary)]">ziddi</span> follows up.
-        </h1>
-        <p className="text-lg text-gray-600 max-w-2xl">
-          Ziddi handles the chasing, escalating, and deadline-hitting — for potholes, deposits, RTIs, and refunds.
-          You approve the drafts. We do the rest.
-        </p>
+        <HeroText />
       </section>
 
       <IntakeChat />

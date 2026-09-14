@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useLang } from "./language-provider";
 
 interface CaseSummary {
   id: string;
@@ -22,6 +23,7 @@ interface CaseSummary {
 const DAY_MS = 86_400_000;
 
 export function CaseList() {
+  const { t } = useLang();
   const [cases, setCases] = useState<CaseSummary[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -34,15 +36,15 @@ export function CaseList() {
   }, []);
 
   if (loading) {
-    return <div className="text-center py-12 text-gray-500">Loading...</div>;
+    return <div className="text-center py-12 text-gray-500">{t("cases.loading")}</div>;
   }
 
   if (cases.length === 0) {
     return (
       <div className="text-center py-12 border border-dashed border-[var(--border)] rounded-lg">
-        <p className="text-gray-500 mb-4">Koi case nahi hai abhi</p>
+        <p className="text-gray-500 mb-4">{t("cases.empty")}</p>
         <a href="/" className="text-[var(--primary)] hover:underline">
-          Start your first case →
+          {t("cases.emptyCta")}
         </a>
       </div>
     );
