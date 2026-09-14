@@ -90,6 +90,28 @@ importers:
         specifier: ^3.2.1
         version: 3.2.7(@types/node@26.5.1)
 
+  services/agent:
+    dependencies:
+      '@ziddi/domain':
+        specifier: workspace:*
+        version: link:../../packages/domain
+      '@ziddi/gemini':
+        specifier: workspace:*
+        version: link:../../packages/gemini
+      ulid:
+        specifier: ^2.3.0
+        version: 2.4.0
+      zod:
+        specifier: ^3.24.0
+        version: 3.25.76
+    devDependencies:
+      typescript:
+        specifier: ^7.0.2
+        version: 7.0.2
+      vitest:
+        specifier: ^3.2.1
+        version: 3.2.7(@types/node@26.5.1)
+
 packages:
 
   '@biomejs/biome@2.5.13':
@@ -952,6 +974,10 @@ packages:
     engines: {node: '>=16.20.0'}
     hasBin: true
 
+  ulid@2.4.0:
+    resolution: {integrity: sha512-fIRiVTJNcSRmXKPZtGzFQv9WRrZ3M9eoptl/teFJvjOzmpU+/K/JH6HZ8deBfb5vMEpicJcLn7JmvdknlMq7Zg==}
+    hasBin: true
+
   undici-types@8.9.0:
     resolution: {integrity: sha512-KTDyRTYX8sWmKXAikPHHSyc63CRPETMctyjKFupcC6OBLXT3xsN0e9aF7m+mIXutFWpUXuedtowG7iLOzp0kQg==}
 
@@ -1746,6 +1772,8 @@ snapshots:
       '@typescript/typescript-sunos-x64': 7.0.2
       '@typescript/typescript-win32-arm64': 7.0.2
       '@typescript/typescript-win32-x64': 7.0.2
+
+  ulid@2.4.0: {}
 
   undici-types@8.9.0: {}
 
