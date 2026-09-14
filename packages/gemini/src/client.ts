@@ -1,14 +1,20 @@
 /**
  * Typed Gemini client. Structured outputs enforced via Zod.
- * Models: gemini-3-flash for loops (cheap), gemini-3.1-pro for drafting (quality).
- * 2026 pricing: Flash $0.50/$3.00 per 1M input/output; Pro $2.00/$12.00.
+ * Model registry with automatic fallback: Google renames model ids often,
+ * so a 404 NOT_FOUND on one id retries the next known-good id.
+ * Sept 2026 pricing: 3.5 Flash ~$0.50/$3.00 per 1M in/out; 3.1 Pro ~$2/$12.
  */
 import { GoogleGenAI } from "@google/genai";
 import { ok, err, Result } from "@ziddi/domain";
 import type { DomainError } from "@ziddi/domain";
 import { z, type ZodSchema } from "zod";
 
-export type GeminiModel = "gemini-3-flash" | "gemini-3.1-pro";
+export type GeminiModel = "gemini-3.5-flash" | "gemini-3.1-pro";
+
+const MODEL_FALLBACKS: Record<GeminiModel, ReadonlyArray<string>> = {
+  "gemini-3.5-flash": ["gemini-3.8-flash", "gemini-3-flash-preview", "gemini-2.5-flash"],
+  "gemini-3.1-pro": ["gemini-3.1-pro-preview", "gemini-3-pro-preview", "gemini-2.5-pro"],
+};
 
 export interface CallOptions {
   readonly model: GeminiModel;
@@ -18,6 +24,17 @@ export interface CallOptions {
 }
 
 const DEFAULT_RETRIES = 2;
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+const isNotFound = (error: unknown): boolean => {
+  const e = error as { status?: number; code?: number; message?: string };
+  return (
+    e?.status === 404 ||
+    e?.code === 404 ||
+    String(e?.message ?? "").includes("NOT_FOUND")
+  );
+};
 
 export class GeminiClient {
   private readonly ai: GoogleGenAI;
@@ -31,87 +48,91 @@ export class GeminiClient {
     schema: T,
     options: CallOptions,
   ): Promise<Result<z.infer<T>, DomainError>> {
+    const candidates = [options.model, ...MODEL_FALLBACKS[options.model]];
     const maxRetries = options.maxRetries ?? DEFAULT_RETRIES;
     let lastError: unknown = null;
 
-    for (let attempt = 0; attempt <= maxRetries; attempt++) {
-      try {
-        const response = await this.ai.models.generateContent({
-          model: options.model,
-          contents: prompt,
-          config: {
-            ...(options.systemInstruction !== undefined && { systemInstruction: options.systemInstruction }),
-            ...(options.temperature !== undefined && { temperature: options.temperature }),
-            responseMimeType: "application/json",
-            responseSchema: zodToJsonSchema(schema),
-          },
-        });
+    for (const model of candidates) {
+      for (let attempt = 0; attempt <= maxRetries; attempt++) {
+        try {
+          const response = await this.ai.models.generateContent({
+            model,
+            contents: prompt,
+            config: {
+              ...(options.systemInstruction !== undefined && {
+                systemInstruction: options.systemInstruction,
+              }),
+              ...(options.temperature !== undefined && { temperature: options.temperature }),
+              responseMimeType: "application/json",
+              responseSchema: zodToJsonSchema(schema),
+            },
+          });
 
-        const raw = response.text;
-        if (raw === undefined || raw.length === 0) {
-          lastError = new Error("Empty response");
-          continue;
-        }
+          const raw = response.text;
+          if (raw === undefined || raw.length === 0) {
+            lastError = new Error("Empty response");
+            continue;
+          }
 
-        const parsed = JSON.parse(raw);
-        const validated = schema.safeParse(parsed);
-
-        if (!validated.success) {
-          lastError = validated.error;
-          continue;
-        }
-
-        return ok(validated.data);
-      } catch (error) {
-        lastError = error;
-        if (attempt < maxRetries) {
-          await sleep(Math.pow(2, attempt) * 250);
+          const parsed: unknown = JSON.parse(raw);
+          const validated = schema.safeParse(parsed);
+          if (!validated.success) {
+            lastError = validated.error;
+            continue;
+          }
+          return ok(validated.data);
+        } catch (error) {
+          lastError = error;
+          if (isNotFound(error)) break;
+          if (attempt < maxRetries) await sleep(Math.pow(2, attempt) * 250);
         }
       }
     }
 
     return err({
       kind: "ValidationFailed",
-      message: `Gemini call failed after ${maxRetries + 1} attempts: ${String(lastError)}`,
+      message: `Gemini call failed across models [${candidates.join(", ")}]: ${String(lastError)}`,
     });
   }
 
   async generateText(prompt: string, options: CallOptions): Promise<Result<string, DomainError>> {
+    const candidates = [options.model, ...MODEL_FALLBACKS[options.model]];
     const maxRetries = options.maxRetries ?? DEFAULT_RETRIES;
     let lastError: unknown = null;
 
-    for (let attempt = 0; attempt <= maxRetries; attempt++) {
-      try {
-        const response = await this.ai.models.generateContent({
-          model: options.model,
-          contents: prompt,
-          config: {
-            ...(options.systemInstruction !== undefined && { systemInstruction: options.systemInstruction }),
-            ...(options.temperature !== undefined && { temperature: options.temperature }),
-          },
-        });
-        const text = response.text;
-        if (text === undefined) {
-          lastError = new Error("Empty response");
-          continue;
-        }
-        return ok(text);
-      } catch (error) {
-        lastError = error;
-        if (attempt < maxRetries) {
-          await sleep(Math.pow(2, attempt) * 250);
+    for (const model of candidates) {
+      for (let attempt = 0; attempt <= maxRetries; attempt++) {
+        try {
+          const response = await this.ai.models.generateContent({
+            model,
+            contents: prompt,
+            config: {
+              ...(options.systemInstruction !== undefined && {
+                systemInstruction: options.systemInstruction,
+              }),
+              ...(options.temperature !== undefined && { temperature: options.temperature }),
+            },
+          });
+          const text = response.text;
+          if (text === undefined) {
+            lastError = new Error("Empty response");
+            continue;
+          }
+          return ok(text);
+        } catch (error) {
+          lastError = error;
+          if (isNotFound(error)) break;
+          if (attempt < maxRetries) await sleep(Math.pow(2, attempt) * 250);
         }
       }
     }
 
     return err({
       kind: "ValidationFailed",
-      message: `Gemini text call failed: ${String(lastError)}`,
+      message: `Gemini text call failed across models [${candidates.join(", ")}]: ${String(lastError)}`,
     });
   }
 }
-
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 /**
  * Convert Zod schema to Gemini JSON schema format.
@@ -164,4 +185,3 @@ function toJsonSchemaRecurse(def: any): any {
       return { type: "string" };
   }
 }
-

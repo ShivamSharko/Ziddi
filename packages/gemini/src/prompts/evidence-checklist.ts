@@ -35,7 +35,7 @@ export const evidenceChecklist = async (
     `Case kind: ${caseKind}\nSummary: ${caseSummary}\n\nGenerate evidence checklist.`,
     evidenceChecklistSchema,
     {
-      model: "gemini-3-flash",
+      model: "gemini-3.5-flash",
       systemInstruction: SYSTEM_INSTRUCTION,
       temperature: 0.3,
     },
