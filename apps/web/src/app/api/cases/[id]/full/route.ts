@@ -37,14 +37,28 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
       let detail: string | null = null;
       if (e.type === "CaseUpdated") detail = pick("reason") ?? "Citizen edited case details";
       else if (e.type === "EvidenceAttached") detail = pick("description");
-      else if (e.type === "DraftPrepared") detail = `Draft prepared: ${String(e.stage ?? "")}`;
-      else if (e.type === "DraftApproved") detail = "Citizen approved the draft";
+      else if (e.type === "DraftPrepared") {
+        const stage = String(e.stage ?? "");
+        const lang = typeof e.language === "string" ? ` (${e.language})` : "";
+        detail = `Draft prepared: ${stage}${lang}`;
+      } else if (e.type === "DraftApproved") detail = "Citizen approved the draft";
       else if (e.type === "DraftRejected") detail = pick("reason") ?? "Citizen requested changes";
       else if (e.type === "CaseClosed") detail = pick("outcome", "reason") ?? "Case closed";
-      else if (e.type === "SlaEscalated") detail = `Escalated to: ${pick("nextStage") ?? "next rung"}`;
-      else if (e.type === "CommunityUpvote") detail = "Community support added (OTP-verified)";
-      else if (e.type === "FiledExternally") detail = pick("portal", "reference") ?? "Filed on external portal";
-      timeline.push({ type: e.type, atMs, detail });
+      else if (e.type === "SlaEscalated") {
+        const reason = pick("reason");
+        const next = pick("nextStage") ?? "next rung";
+        detail = reason === null ? `Escalated to: ${next}` : `${reason} → ${next}`;
+      } else if (e.type === "CommunityUpvote") detail = "Community support added (OTP-verified)";
+      else if (e.type === "FiledExternally") {
+        const portal = pick("portal") ?? "external portal";
+        const ref = pick("referenceId", "reference");
+        detail = ref === null ? `Filed on ${portal}` : `Filed on ${portal} (ref: ${ref})`;
+      }
+      if (detail === null) {
+        timeline.push({ type: e.type, atMs });
+      } else {
+        timeline.push({ type: e.type, atMs, detail });
+      }
 
       if (e.type === "CaseOpened") {
         const paise =
@@ -61,9 +75,9 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
           state: e.state,
           locality: e.locality ?? null,
           urgency: e.urgency,
-          status: "Intake",
+          status: "Evidence",
           anonymous: e.anonymous === true,
-          amountRupees: paise === null ? null : paise / 100,
+          amountRupees: paise === null || paise === 0 ? null : paise / 100,
           openedAtMs: atMs,
         };
       } else if (e.type === "CaseUpdated") {
@@ -77,7 +91,7 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
           dataUrl: typeof e.dataUrl === "string" ? e.dataUrl : null,
           atMs,
         });
-        if (base !== null && base.status === "Intake") base.status = "Evidence";
+        if (base !== null) base.status = "Drafting";
       } else if (e.type === "DraftPrepared") {
         drafts.push({
           draftId: e.draftId,
@@ -86,8 +100,7 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
           formattedDocument: e.formattedDocument ?? null,
           confidence: e.confidence,
         });
-        if (base !== null && (base.status === "Intake" || base.status === "Evidence"))
-          base.status = "Drafting";
+        if (base !== null) base.status = "AwaitingApproval";
       } else if (e.type === "DraftApproved") {
         resolved.add(String(e.draftId));
         if (base !== null) base.status = "Filed";

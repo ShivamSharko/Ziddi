@@ -117,7 +117,6 @@ export function CaseDetail({ caseId }: { caseId: string }) {
   const [upvoteDone, setUpvoteDone] = useState(false);
   const [upvoteMsg, setUpvoteMsg] = useState<string | null>(null);
   const [draftError, setDraftError] = useState<string | null>(null);
-  const [liveDraft, setLiveDraft] = useState<DraftInfo | null>(null);
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState(false);
   const [editForm, setEditForm] = useState({
@@ -252,13 +251,6 @@ export function CaseDetail({ caseId }: { caseId: string }) {
           typeof data.error === "string" ? data.error : `Draft failed (${res.status})`,
         );
       }
-      setLiveDraft({
-        draftId: data.draftId,
-        stage: data.stage,
-        body: data.body,
-        formattedDocument: data.formattedDocument,
-        confidence: data.confidence,
-      });
       await load();
     } catch (e) {
       setDraftError(e instanceof Error ? e.message : "Unknown error");
@@ -281,7 +273,7 @@ export function CaseDetail({ caseId }: { caseId: string }) {
           state: editForm.state,
           urgency: editForm.urgency,
           amountRupees:
-            editForm.amountRupees.trim() === "" ? undefined : Number(editForm.amountRupees),
+            editForm.amountRupees.trim() === "" ? null : Number(editForm.amountRupees),
           reason: "Citizen edited case details",
         }),
       });
@@ -326,7 +318,7 @@ export function CaseDetail({ caseId }: { caseId: string }) {
   };
   const evidence = detail.evidence ?? [];
   const timeline = detail.timeline ?? [];
-  const draft = liveDraft ?? detail.currentDraft ?? detail.pendingDraft ?? null;
+  const draft = detail.currentDraft ?? detail.pendingDraft ?? null;
   const shareText = encodeURIComponent(
     `Ziddi case ${detail.id}: ${detail.summary} — support karo: ${
       typeof window !== "undefined" ? window.location.href : ""
@@ -692,7 +684,7 @@ export function CaseDetail({ caseId }: { caseId: string }) {
                   </span>
                   <p className="text-sm">
                     {humanize(item.type)}
-                    {item.detail !== undefined ? ` — ${item.detail}` : ""}
+                    {item.detail != null && item.detail.length > 0 ? ` — ${item.detail}` : ""}
                   </p>
                   <p className="font-mono-data text-[10px] text-[var(--text-2)]">{fmtStamp(item.atMs)}</p>
                 </li>

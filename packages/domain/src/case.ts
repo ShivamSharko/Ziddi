@@ -81,7 +81,11 @@ export const fold = (state: CaseState, event: DomainEvent): CaseState => {
       if (typeof f.city === "string") next.city = f.city;
       if (typeof f.state === "string") next.state = f.state;
       if (typeof f.urgency === "string") next.urgency = f.urgency as typeof next.urgency;
-      if (typeof f.amountRupees === "number") next.amountPaise = BigInt(Math.round(f.amountRupees * 100)) as Paise;
+      if (typeof f.amountRupees === "number") {
+        next.amountPaise = BigInt(Math.round(f.amountRupees * 100)) as Paise;
+      } else if (f.amountRupees === null) {
+        next.amountPaise = 0n as Paise;
+      }
       return next;
     }
     case "CaseOpened":

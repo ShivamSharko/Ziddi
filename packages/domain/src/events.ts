@@ -98,7 +98,7 @@ export const caseUpdatedEventSchema = baseSchema.extend({
     city: z.string().optional(),
     state: z.string().optional(),
     urgency: z.string().optional(),
-    amountRupees: z.number().nonnegative().optional(),
+    amountRupees: z.number().nonnegative().nullable().optional(),
   }),
   reason: z.string().optional(),
 });

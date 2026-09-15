@@ -7,16 +7,30 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
   const { id } = await ctx.params;
   const body = (await request.json()) as Record<string, unknown>;
   const fields: Record<string, unknown> = {};
-  if (typeof body.summary === "string" && body.summary.trim().length >= 10)
-    fields.summary = body.summary.trim();
+  if (typeof body.summary === "string") {
+    const s = body.summary.trim();
+    if (s.length === 0) {
+      return NextResponse.json({ error: "Summary cannot be empty" }, { status: 400 });
+    }
+    if (s.length < 10) {
+      return NextResponse.json(
+        { error: "Summary must be at least 10 characters so the case stays citable" },
+        { status: 400 },
+      );
+    }
+    fields.summary = s;
+  }
   if (typeof body.locality === "string")
     fields.locality = body.locality.trim().length > 0 ? body.locality.trim() : null;
   if (typeof body.city === "string" && body.city.trim().length > 0) fields.city = body.city.trim();
   if (typeof body.state === "string" && body.state.trim().length > 0)
     fields.state = body.state.trim();
   if (typeof body.urgency === "string" && body.urgency.length > 0) fields.urgency = body.urgency;
-  if (typeof body.amountRupees === "number" && body.amountRupees >= 0)
+  if (body.amountRupees === null) {
+    fields.amountRupees = null;
+  } else if (typeof body.amountRupees === "number" && body.amountRupees >= 0) {
     fields.amountRupees = body.amountRupees;
+  }
 
   if (Object.keys(fields).length === 0) {
     return NextResponse.json({ error: "No valid fields to update" }, { status: 400 });
