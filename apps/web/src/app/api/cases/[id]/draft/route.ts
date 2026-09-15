@@ -2,7 +2,14 @@ import { NextResponse } from "next/server";
 import { ZiddiOrchestrator, type DraftStage } from "@ziddi/agent";
 import { errorMessage, getRepo } from "@/lib/repo";
 
-const ALLOWED_STAGES: ReadonlyArray<string> = ["DemandNotice", "FirstAppeal", "RtiApplication"];
+const ALLOWED_STAGES: ReadonlyArray<string> = [
+  "DemandNotice",
+  "FirstAppeal",
+  "SecondAppeal",
+  "RtiApplication",
+  "ConsumerComplaint",
+  "SocialPack",
+];
 
 export async function POST(request: Request, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params;

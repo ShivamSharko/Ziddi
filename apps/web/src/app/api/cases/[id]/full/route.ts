@@ -24,6 +24,7 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
     const resolved = new Set<string>();
     const updates: Array<Record<string, unknown>> = [];
     let votes = 0;
+    const voters = new Set<string>();
 
     for (const e of events) {
       const atMs = toMs(e.at);
@@ -106,12 +107,28 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
         if (base !== null) base.status = "Filed";
       } else if (e.type === "DraftRejected") {
         resolved.add(String(e.draftId));
+      }
+      if (e.type === "DraftRejected" && base !== null) {
+        base.status = "Drafting";
+      } else if (e.type === "FiledExternally" && base !== null) {
+        base.status = "Tracking";
+      } else if (e.type === "SlaEscalated" && base !== null) {
+        base.status = "Escalating";
+      } else if (e.type === "CaseClosed" && base !== null) {
+        const outcome = typeof e.outcome === "string" ? e.outcome : null;
+        base.status = outcome === "Withdrawn" ? "Withdrawn" : "Resolved";
       } else if (
         e.type === "CommunityUpvote" ||
         e.type === "UpvoteReceived" ||
         e.type === "CaseUpvoted"
       ) {
-        votes += 1;
+        const token = typeof e.voterToken === "string" ? e.voterToken : null;
+        if (token === null) {
+          votes += 1;
+        } else if (!voters.has(token)) {
+          voters.add(token);
+          votes += 1;
+        }
       }
     }
 

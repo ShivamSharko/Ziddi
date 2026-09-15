@@ -38,6 +38,29 @@ export interface EvidenceItemInput {
 
 export type DraftStage = "DemandNotice" | "FirstAppeal" | "SecondAppeal" | "RtiApplication";
 
+import { createHash } from "node:crypto";
+
+const computeEvidenceHash = (item: {
+  mimeType?: string;
+  dataUrl?: string;
+  fileName?: string;
+  description?: string;
+}): string => {
+  const h = createHash("sha256");
+  if (typeof item.dataUrl === "string" && item.dataUrl.length > 0) {
+    const commaIdx = item.dataUrl.indexOf(",");
+    const payload = commaIdx >= 0 ? item.dataUrl.slice(commaIdx + 1) : item.dataUrl;
+    h.update(Buffer.from(payload, "utf8"));
+  } else if (typeof item.description === "string" && item.description.length > 0) {
+    h.update(item.description);
+  } else if (typeof item.fileName === "string" && item.fileName.length > 0) {
+    h.update(item.fileName);
+  } else {
+    h.update("ziddi:empty-evidence");
+  }
+  return h.digest("hex");
+};
+
 export class ZiddiOrchestrator {
   constructor(private readonly repo: CaseRepository) {}
 
@@ -173,7 +196,7 @@ export class ZiddiOrchestrator {
         evidenceId: ulid(),
         mimeType: item.mimeType,
         description: item.description,
-        hashSha256: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        hashSha256: computeEvidenceHash(item),
         at: BigInt(Date.now()),
         actor: { type: "Citizen", id: "user_1" },
         ...(item.dataUrl !== undefined ? { dataUrl: item.dataUrl } : {}),

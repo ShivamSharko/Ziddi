@@ -542,6 +542,8 @@ export function CaseDetail({ caseId }: { caseId: string }) {
                 <option value="FirstAppeal">First Appeal</option>
                 <option value="SecondAppeal">Second Appeal</option>
                 <option value="RtiApplication">RTI Application</option>
+                <option value="ConsumerComplaint">Consumer Complaint</option>
+                <option value="SocialPack">Social Media Pack</option>
               </select>
             </label>
             <button
