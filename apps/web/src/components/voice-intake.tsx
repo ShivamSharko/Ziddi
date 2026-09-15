@@ -46,6 +46,7 @@ export function VoiceIntake({ onExtraction }: VoiceIntakeProps) {
   const chunkRef = useRef<ReadableStreamDefaultController<Uint8Array> | null>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const modeRef = useRef<"live" | "upload">("live");
+  const abortRef = useRef<AbortController | null>(null);
 
   const releaseMic = () => {
     try {
@@ -75,6 +76,7 @@ export function VoiceIntake({ onExtraction }: VoiceIntakeProps) {
     chunkRef.current = null;
     contextRef.current = null;
     streamRef.current = null;
+    abortRef.current = null;
     setRecording(false);
   };
 
@@ -132,9 +134,13 @@ export function VoiceIntake({ onExtraction }: VoiceIntakeProps) {
       cc.enqueue(new Uint8Array(pcm.buffer));
     };
 
+    const abort = new AbortController();
+    abortRef.current = abort;
+
     const response = await fetch("/api/live-intake", {
       method: "POST",
       body,
+      signal: abort.signal,
       // @ts-expect-error duplex is required for streaming request bodies
       duplex: "half",
     });
@@ -219,6 +225,10 @@ export function VoiceIntake({ onExtraction }: VoiceIntakeProps) {
   };
 
   const stopRecording = () => {
+    if (abortRef.current !== null) {
+      abortRef.current.abort();
+      abortRef.current = null;
+    }
     if (modeRef.current === "upload" && recorderRef.current !== null && recorderRef.current.state !== "inactive") {
       recorderRef.current.stop();
       return;

@@ -31,6 +31,7 @@ export async function GET(_request: Request, ctx: { params: Promise<{ id: string
 
     return NextResponse.json({ draft: pending });
   } catch (err) {
+    console.error("[pending-draft] error:", err);
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "Unknown error" },
       { status: 500 },
