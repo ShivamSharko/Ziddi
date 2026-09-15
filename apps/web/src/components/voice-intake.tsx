@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Mic } from "lucide-react";
 
 interface ExtractedCase {
@@ -15,14 +15,6 @@ interface ExtractedCase {
 
 interface VoiceIntakeProps {
   onExtraction: (data: ExtractedCase) => void;
-}
-
-interface LiveRefs {
-  stream: MediaStream;
-  context: AudioContext;
-  processor: ScriptProcessorNode;
-  source: MediaStreamAudioSourceNode;
-  chunkController: ReadableStreamDefaultController<Uint8Array>;
 }
 
 const resampleTo16k = (input: Float32Array, inputRate: number): Int16Array => {
@@ -46,10 +38,52 @@ export function VoiceIntake({ onExtraction }: VoiceIntakeProps) {
   const [processing, setProcessing] = useState(false);
   const [transcript, setTranscript] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const liveRefs = useRef<LiveRefs | null>(null);
-  const modeRef = useRef<"live" | "upload">("live");
+
+  const streamRef = useRef<MediaStream | null>(null);
+  const contextRef = useRef<AudioContext | null>(null);
+  const processorRef = useRef<ScriptProcessorNode | null>(null);
+  const sourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
+  const chunkRef = useRef<ReadableStreamDefaultController<Uint8Array> | null>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
-  const chunksRef = useRef<Blob[]>([]);
+  const modeRef = useRef<"live" | "upload">("live");
+
+  const releaseMic = () => {
+    try {
+      processorRef.current?.disconnect();
+    } catch {
+      // already disconnected
+    }
+    try {
+      sourceRef.current?.disconnect();
+    } catch {
+      // already disconnected
+    }
+    try {
+      chunkRef.current?.close();
+    } catch {
+      // already closed
+    }
+    if (contextRef.current !== null && contextRef.current.state !== "closed") {
+      void contextRef.current.close();
+    }
+    streamRef.current?.getTracks().forEach((t) => t.stop());
+    if (recorderRef.current !== null && recorderRef.current.state !== "inactive") {
+      recorderRef.current.stop();
+    }
+    processorRef.current = null;
+    sourceRef.current = null;
+    chunkRef.current = null;
+    contextRef.current = null;
+    streamRef.current = null;
+    setRecording(false);
+  };
+
+  useEffect(() => {
+    return () => {
+      releaseMic();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleLine = (line: string) => {
     if (line.trim().length === 0) return;
@@ -74,23 +108,28 @@ export function VoiceIntake({ onExtraction }: VoiceIntakeProps) {
 
   const startLive = async () => {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    streamRef.current = stream;
+
     const context = new AudioContext();
+    contextRef.current = context;
     const source = context.createMediaStreamSource(stream);
+    sourceRef.current = source;
     const processor = context.createScriptProcessor(4096, 1, 1);
+    processorRef.current = processor;
     source.connect(processor);
     processor.connect(context.destination);
 
-    let chunkController: ReadableStreamDefaultController<Uint8Array> | null = null;
     const body = new ReadableStream<Uint8Array>({
       start(c) {
-        chunkController = c;
+        chunkRef.current = c;
       },
     });
 
     processor.onaudioprocess = (e) => {
-      if (chunkController === null) return;
+      const cc = chunkRef.current;
+      if (cc === null) return;
       const pcm = resampleTo16k(e.inputBuffer.getChannelData(0), context.sampleRate);
-      chunkController.enqueue(new Uint8Array(pcm.buffer));
+      cc.enqueue(new Uint8Array(pcm.buffer));
     };
 
     const response = await fetch("/api/live-intake", {
@@ -101,16 +140,12 @@ export function VoiceIntake({ onExtraction }: VoiceIntakeProps) {
     });
 
     if (!response.ok || response.body === null) {
-      processor.disconnect();
-      source.disconnect();
-      stream.getTracks().forEach((t) => t.stop());
-      void context.close();
+      releaseMic();
       throw new Error("live-unavailable");
     }
 
-    if (chunkController === null) throw new Error("live-unavailable");
-    liveRefs.current = { stream, context, processor, source, chunkController };
     modeRef.current = "live";
+    setRecording(true);
 
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
@@ -126,22 +161,26 @@ export function VoiceIntake({ onExtraction }: VoiceIntakeProps) {
           for (const line of lines) handleLine(line);
         }
       } catch {
-        // stream aborted on stop
+        // aborted
+      } finally {
+        releaseMic();
       }
     })();
   };
 
   const startUploadFallback = async () => {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    streamRef.current = stream;
     const recorder = new MediaRecorder(stream, { mimeType: "audio/webm" });
-    chunksRef.current = [];
+    recorderRef.current = recorder;
+    const chunks: Blob[] = [];
     recorder.ondataavailable = (e) => {
-      if (e.data.size > 0) chunksRef.current.push(e.data);
+      if (e.data.size > 0) chunks.push(e.data);
     };
     recorder.onstop = async () => {
       setProcessing(true);
       try {
-        const blob = new Blob(chunksRef.current, { type: "audio/webm" });
+        const blob = new Blob(chunks, { type: "audio/webm" });
         const formData = new FormData();
         formData.append("audio", blob);
         const res = await fetch("/api/voice-intake", { method: "POST", body: formData });
@@ -152,12 +191,12 @@ export function VoiceIntake({ onExtraction }: VoiceIntakeProps) {
       } catch (e) {
         setError(e instanceof Error ? e.message : "Voice processing failed");
       } finally {
-        stream.getTracks().forEach((t) => t.stop());
+        releaseMic();
         setProcessing(false);
       }
     };
-    recorderRef.current = recorder;
     modeRef.current = "upload";
+    setRecording(true);
     recorder.start();
   };
 
@@ -171,8 +210,8 @@ export function VoiceIntake({ onExtraction }: VoiceIntakeProps) {
       } catch {
         await startUploadFallback();
       }
-      setRecording(true);
     } catch (e) {
+      releaseMic();
       setError(e instanceof Error ? e.message : "Microphone unavailable");
     } finally {
       setProcessing(false);
@@ -180,20 +219,11 @@ export function VoiceIntake({ onExtraction }: VoiceIntakeProps) {
   };
 
   const stopRecording = () => {
-    if (modeRef.current === "live") {
-      const r = liveRefs.current;
-      if (r !== null) {
-        r.processor.disconnect();
-        r.source.disconnect();
-        r.chunkController.close();
-        void r.context.close();
-        r.stream.getTracks().forEach((t) => t.stop());
-        liveRefs.current = null;
-      }
-    } else if (recorderRef.current !== null && recorderRef.current.state !== "inactive") {
+    if (modeRef.current === "upload" && recorderRef.current !== null && recorderRef.current.state !== "inactive") {
       recorderRef.current.stop();
+      return;
     }
-    setRecording(false);
+    releaseMic();
   };
 
   return (

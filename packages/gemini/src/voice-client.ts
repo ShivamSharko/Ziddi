@@ -1,6 +1,6 @@
 /**
- * Voice intake client using Gemini 2.0 Flash for audio processing.
- * Processes base64-encoded audio, returns transcription + structured extraction.
+ * Voice intake client: processes base64-encoded audio into transcript + structured case.
+ * Uses a fallback chain of audio-capable Flash models (gemini-2.0-flash-exp was retired).
  */
 import { GoogleGenAI } from "@google/genai";
 import { ok, err, Result } from "@ziddi/domain";
@@ -19,28 +19,10 @@ export interface VoiceIntakeResult {
   } | null;
 }
 
-export class VoiceClient {
-  private readonly ai: GoogleGenAI;
+const VOICE_MODELS = ["gemini-3.8-flash", "gemini-3.5-flash", "gemini-3.5-flash-lite"];
 
-  constructor(apiKey: string) {
-    this.ai = new GoogleGenAI({ apiKey });
-  }
+const VOICE_INSTRUCTION = `Transcribe this Hinglish audio and extract structured grievance data.
 
-  async processAudio(base64Audio: string): Promise<Result<VoiceIntakeResult, DomainError>> {
-    try {
-      const response = await this.ai.models.generateContent({
-        model: "gemini-2.0-flash-exp",
-        contents: {
-          parts: [
-            {
-              inlineData: {
-                mimeType: "audio/webm",
-                data: base64Audio,
-              },
-            },
-            {
-              text: `Transcribe this Hinglish audio and extract structured grievance data.
-              
 Return JSON with these exact fields:
 - transcript: the spoken words in original language
 - kind: one of [CivicPothole, CivicGarbage, CivicWater, LandlordDeposit, ConsumerRefund, RtiFiling, RtiAppeal, AadhaarUpdate, ElectricityBill, TelecomRefund]
@@ -61,27 +43,53 @@ Example output:
   "urgency": "High",
   "amountRupees": 60000,
   "isGenuineGrievance": true
-}`,
-            },
-          ],
-        },
-        config: {
-          responseMimeType: "application/json",
-        },
-      });
+}`;
 
-      const raw = response.text ?? "{}";
-      const parsed = JSON.parse(raw);
+export class VoiceClient {
+  private readonly ai: GoogleGenAI;
 
-      return ok({
-        transcript: parsed.transcript ?? "",
-        extracted: parsed,
-      });
-    } catch (error) {
-      return err({
-        kind: "ValidationFailed",
-        message: `Voice processing failed: ${String(error)}`,
-      });
+  constructor(apiKey: string) {
+    this.ai = new GoogleGenAI({ apiKey });
+  }
+
+  async processAudio(base64Audio: string): Promise<Result<VoiceIntakeResult, DomainError>> {
+    let lastError: unknown = null;
+
+    for (const model of VOICE_MODELS) {
+      try {
+        const response = await this.ai.models.generateContent({
+          model,
+          contents: {
+            parts: [
+              {
+                inlineData: {
+                  mimeType: "audio/webm",
+                  data: base64Audio,
+                },
+              },
+              { text: VOICE_INSTRUCTION },
+            ],
+          },
+          config: {
+            responseMimeType: "application/json",
+          },
+        });
+
+        const raw = response.text ?? "{}";
+        const parsed = JSON.parse(raw) as Record<string, unknown>;
+
+        return ok({
+          transcript: typeof parsed.transcript === "string" ? parsed.transcript : "",
+          extracted: parsed as VoiceIntakeResult["extracted"],
+        });
+      } catch (error) {
+        lastError = error;
+      }
     }
+
+    return err({
+      kind: "ValidationFailed",
+      message: `Voice processing failed on all models: ${String(lastError)}`,
+    });
   }
 }
