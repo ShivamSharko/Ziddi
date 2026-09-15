@@ -4,7 +4,9 @@ import { getRepo } from "@/lib/repo";
 type Ev = { type: string; at?: unknown; [k: string]: unknown };
 
 const toMs = (at: unknown): number => {
-  const n = typeof at === "bigint" ? Number(at) : Number(at ?? 0);
+  if (at === null || at === undefined) return Date.now();
+  const n = typeof at === "bigint" ? Number(at) : Number(at);
+  if (!Number.isFinite(n)) return Date.now();
   return n > 1e12 ? n : n * 1000;
 };
 
@@ -76,11 +78,12 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
           state: e.state,
           locality: e.locality ?? null,
           urgency: e.urgency,
-          status: "Evidence",
+          status: "Intake",
           anonymous: e.anonymous === true,
           amountRupees: paise === null || paise === 0 ? null : paise / 100,
           openedAtMs: atMs,
         };
+        detail = `Case filed in ${e.city}, ${e.state}`;
       } else if (e.type === "CaseUpdated") {
         updates.push((e.fields as Record<string, unknown>) ?? {});
       } else if (e.type === "EvidenceAttached") {
@@ -92,7 +95,10 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
           dataUrl: typeof e.dataUrl === "string" ? e.dataUrl : null,
           atMs,
         });
-        if (base !== null) base.status = "Drafting";
+        // Only advance status if not already past Drafting
+        if (base !== null && (base.status === "Intake" || base.status === "Evidence")) {
+          base.status = "Drafting";
+        }
       } else if (e.type === "DraftPrepared") {
         drafts.push({
           draftId: e.draftId,
@@ -116,7 +122,13 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
         base.status = "Escalating";
       } else if (e.type === "CaseClosed" && base !== null) {
         const outcome = typeof e.outcome === "string" ? e.outcome : null;
-        base.status = outcome === "Withdrawn" ? "Withdrawn" : "Resolved";
+        if (outcome === "Withdrawn") {
+          base.status = "Withdrawn";
+        } else if (outcome === "Stale") {
+          base.status = "Stale";
+        } else {
+          base.status = "Resolved";
+        }
       } else if (
         e.type === "CommunityUpvote" ||
         e.type === "UpvoteReceived" ||
@@ -142,7 +154,15 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
     }
 
     const approvals = events.filter((e) => e.type === "DraftApproved").length;
-    const pending = [...drafts].reverse().find((d) => !resolved.has(String(d.draftId))) ?? null;
+    // Find the most recent draft that hasn't been resolved
+    let pending: Record<string, unknown> | null = null;
+    for (let i = drafts.length - 1; i >= 0; i--) {
+      const d = drafts[i];
+      if (d !== undefined && !resolved.has(String(d.draftId))) {
+        pending = d;
+        break;
+      }
+    }
     const openedAtMs = Number(base.openedAtMs);
     const daysActive = Math.max(1, Math.floor((Date.now() - openedAtMs) / 86_400_000));
     const percent = Math.min(100, evidence.length * 20 + approvals * 30 + (pending === null ? 0 : 10));

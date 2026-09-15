@@ -129,6 +129,7 @@ export function CaseDetail({ caseId }: { caseId: string }) {
   });
 
   const load = useCallback(async () => {
+    setError(null);
     try {
       const res = await fetch(`/api/cases/${caseId}/full`);
       const data = await res.json();
@@ -144,6 +145,25 @@ export function CaseDetail({ caseId }: { caseId: string }) {
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    // Reset all component state when caseId changes
+    setEditing(false);
+    setUpvoteDone(false);
+    setUpvoteMsg(null);
+    setDraftError(null);
+    setError(null);
+    setPendingFiles([]);
+    setEvidenceDesc("");
+    setEditForm({
+      summary: "",
+      locality: "",
+      city: "",
+      state: "",
+      urgency: "Standard",
+      amountRupees: "",
+    });
+  }, [caseId]);
 
   const post = async (suffix: string, body: unknown) => {
     setBusy(true);
