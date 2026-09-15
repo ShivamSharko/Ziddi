@@ -90,6 +90,21 @@ export const communityUpvoteSchema = baseSchema.extend({
   voterToken: z.string().length(64),
 });
 
+export const caseUpdatedEventSchema = baseSchema.extend({
+  type: z.literal("CaseUpdated"),
+  fields: z.object({
+    summary: z.string().optional(),
+    locality: z.string().nullable().optional(),
+    city: z.string().optional(),
+    state: z.string().optional(),
+    urgency: z.string().optional(),
+    amountRupees: z.number().nonnegative().optional(),
+  }),
+  reason: z.string().optional(),
+});
+
+export type CaseUpdatedEvent = z.infer<typeof caseUpdatedEventSchema>;
+
 export const domainEventSchema = z.discriminatedUnion("type", [
   caseOpenedSchema,
   evidenceAttachedSchema,
@@ -100,6 +115,7 @@ export const domainEventSchema = z.discriminatedUnion("type", [
   slaEscalatedSchema,
   caseClosedSchema,
   communityUpvoteSchema,
+  caseUpdatedEventSchema,
 ]);
 
 export type DomainEvent = z.infer<typeof domainEventSchema>;
@@ -111,6 +127,4 @@ export type DraftRejected = z.infer<typeof draftRejectedSchema>;
 export type FiledExternally = z.infer<typeof filedExternallySchema>;
 export type SlaEscalated = z.infer<typeof slaEscalatedSchema>;
 export type CaseClosed = z.infer<typeof caseClosedSchema>;
-
-
 export type CommunityUpvote = z.infer<typeof communityUpvoteSchema>;

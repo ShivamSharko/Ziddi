@@ -76,6 +76,8 @@ export const toEventDto = (event: DomainEvent): CaseEventDto => {
       return { ...base, type: event.type, detail: event.outcome };
     case "CommunityUpvote":
       return { ...base, type: event.type, detail: "Community support added (Aadhaar-verified)" };
+    case "CaseUpdated":
+      return { ...base, type: event.type, detail: event.reason ?? "Citizen edited case details" };
   }
 };
 

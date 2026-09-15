@@ -75,6 +75,37 @@ const fmtCountdown = (ms: bigint): string => {
 
 const humanize = (s: string): string => s.replace(/([a-z])([A-Z])/g, "$1 $2");
 
+const normalizeDetail = (raw: Record<string, unknown>): CaseDetailData => ({
+  id: String(raw.id ?? ""),
+  kind: String(raw.kind ?? "Unknown"),
+  summary: String(raw.summary ?? ""),
+  city: String(raw.city ?? ""),
+  state: String(raw.state ?? ""),
+  locality: raw.locality === undefined || raw.locality === null ? null : String(raw.locality),
+  urgency: String(raw.urgency ?? "Standard"),
+  status: String(raw.status ?? "Intake"),
+  votes: Number(raw.votes ?? 0),
+  anonymous: raw.anonymous === true,
+  amountRupees:
+    raw.amountRupees === undefined || raw.amountRupees === null
+      ? null
+      : Number(raw.amountRupees),
+  evidenceCount: Number(raw.evidenceCount ?? 0),
+  openedAtMs: Number(raw.openedAtMs ?? Date.now()),
+  progress:
+    (raw.progress as ProgressInfo) ?? {
+      percent: 0,
+      evidence: 0,
+      approvals: 0,
+      daysActive: 0,
+      percentile: 0,
+    },
+  evidence: Array.isArray(raw.evidence) ? (raw.evidence as EvidenceItem[]) : [],
+  timeline: Array.isArray(raw.timeline) ? (raw.timeline as TimelineItem[]) : [],
+  currentDraft:
+    (raw.pendingDraft as DraftInfo | null) ?? (raw.currentDraft as DraftInfo | null) ?? null,
+});
+
 export function CaseDetail({ caseId }: { caseId: string }) {
   const [detail, setDetail] = useState<CaseDetailData | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -88,15 +119,24 @@ export function CaseDetail({ caseId }: { caseId: string }) {
   const [draftError, setDraftError] = useState<string | null>(null);
   const [liveDraft, setLiveDraft] = useState<DraftInfo | null>(null);
   const [busy, setBusy] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [editForm, setEditForm] = useState({
+    summary: "",
+    locality: "",
+    city: "",
+    state: "",
+    urgency: "Standard",
+    amountRupees: 0,
+  });
 
   const load = useCallback(async () => {
     try {
-      const res = await fetch(`/api/cases/${caseId}`);
+      const res = await fetch(`/api/cases/${caseId}/full`);
       const data = await res.json();
       if (!res.ok) {
         throw new Error(typeof data.error === "string" ? data.error : "Failed to load");
       }
-      setDetail(data as CaseDetailData);
+      setDetail(normalizeDetail(data as Record<string, unknown>));
     } catch (e) {
       setError(e instanceof Error ? e.message : "Unknown error");
     }
@@ -227,6 +267,36 @@ export function CaseDetail({ caseId }: { caseId: string }) {
     }
   };
 
+  const saveEdit = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/cases/${caseId}/update`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          summary: editForm.summary,
+          locality: editForm.locality,
+          city: editForm.city,
+          state: editForm.state,
+          urgency: editForm.urgency,
+          amountRupees: editForm.amountRupees,
+          reason: "Citizen edited case details",
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(typeof data.error === "string" ? data.error : "Update failed");
+      }
+      setEditing(false);
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Unknown error");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   if (error !== null && detail === null) {
     return <p className="text-sm text-[var(--ember)]">{error}</p>;
   }
@@ -306,6 +376,84 @@ export function CaseDetail({ caseId }: { caseId: string }) {
           <p className="font-mono-data text-[10px] text-[var(--text-2)]">
             CASE #{detail.id} · OPENED {fmtStamp(detail.openedAtMs)}
           </p>
+          <button
+            type="button"
+            onClick={() => {
+              if (!editing) {
+                setEditForm({
+                  summary: detail.summary,
+                  locality: detail.locality ?? "",
+                  city: detail.city,
+                  state: detail.state,
+                  urgency: detail.urgency,
+                  amountRupees: detail.amountRupees ?? 0,
+                });
+              }
+              setEditing(!editing);
+            }}
+            className="font-mono-data text-[10px] uppercase tracking-[0.18em] text-[var(--signal)] underline"
+          >
+            {editing ? "Cancel edit" : "Edit case"}
+          </button>
+          {editing && (
+            <div className="crop-frame dim space-y-3 p-4">
+              <input
+                className="field-underline"
+                value={editForm.summary}
+                onChange={(e) => setEditForm({ ...editForm, summary: e.target.value })}
+                placeholder="Summary"
+              />
+              <div className="flex gap-4">
+                <input
+                  className="field-underline flex-1"
+                  value={editForm.city}
+                  onChange={(e) => setEditForm({ ...editForm, city: e.target.value })}
+                  placeholder="City"
+                />
+                <input
+                  className="field-underline flex-1"
+                  value={editForm.state}
+                  onChange={(e) => setEditForm({ ...editForm, state: e.target.value })}
+                  placeholder="State"
+                />
+              </div>
+              <div className="flex gap-4">
+                <input
+                  className="field-underline flex-1"
+                  value={editForm.locality}
+                  onChange={(e) => setEditForm({ ...editForm, locality: e.target.value })}
+                  placeholder="Locality"
+                />
+                <input
+                  className="field-underline w-32"
+                  type="number"
+                  value={editForm.amountRupees}
+                  onChange={(e) =>
+                    setEditForm({ ...editForm, amountRupees: Number(e.target.value) })
+                  }
+                  placeholder="₹ amount"
+                />
+              </div>
+              <select
+                value={editForm.urgency}
+                onChange={(e) => setEditForm({ ...editForm, urgency: e.target.value })}
+                className="w-full border border-[var(--hairline)] bg-[var(--ink-3)] px-2 py-2 text-xs text-[var(--text)]"
+              >
+                <option value="Emergency">Emergency</option>
+                <option value="High">High</option>
+                <option value="Standard">Standard</option>
+                <option value="Low">Low</option>
+              </select>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => void saveEdit()}
+                className="rounded-full bg-[var(--signal)] px-4 py-2 text-xs font-semibold text-white disabled:opacity-40"
+              >
+                Save changes (logged to timeline)
+              </button>
+            </div>
+          )}
         </div>
       </div>
 

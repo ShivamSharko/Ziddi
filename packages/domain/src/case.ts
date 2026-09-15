@@ -73,6 +73,17 @@ export const initialState = (): CaseState => ({
 
 export const fold = (state: CaseState, event: DomainEvent): CaseState => {
   switch (event.type) {
+    case "CaseUpdated": {
+      const f = event.fields ?? {};
+      const next = { ...state, events: [...state.events, event] };
+      if (typeof f.summary === "string") next.summary = f.summary;
+      if (f.locality === null || typeof f.locality === "string") next.locality = f.locality as string | null;
+      if (typeof f.city === "string") next.city = f.city;
+      if (typeof f.state === "string") next.state = f.state;
+      if (typeof f.urgency === "string") next.urgency = f.urgency as typeof next.urgency;
+      if (typeof f.amountRupees === "number") next.amountPaise = BigInt(Math.round(f.amountRupees * 100)) as Paise;
+      return next;
+    }
     case "CaseOpened":
       return {
         ...state,
