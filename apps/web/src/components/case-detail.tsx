@@ -214,19 +214,29 @@ export function CaseDetail({ caseId }: { caseId: string }) {
   const onFilesChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files ?? []);
     e.target.value = "";
-    const remaining = 6 - pendingFiles.length;
-    for (const file of files.slice(0, Math.max(0, remaining))) {
+    let count = pendingFiles.length;
+    for (const file of files) {
+      if (count >= 6) break;
+      if (pendingFiles.some((p) => p.name === file.name)) continue;
+      if (file.size > 4 * 1024 * 1024) {
+        setError(`File too large (max 4MB): ${file.name}`);
+        continue;
+      }
+      count++;
       const reader = new FileReader();
       reader.onload = () => {
         if (typeof reader.result === "string") {
-          setPendingFiles((prev) => [
-            ...prev,
-            {
-              name: file.name,
-              dataUrl: reader.result as string,
-              desc: file.name.replace(/\.[^.]+$/, ""),
-            },
-          ]);
+          setPendingFiles((prev) => {
+            if (prev.length >= 6 || prev.some((p) => p.name === file.name)) return prev;
+            return [
+              ...prev,
+              {
+                name: file.name,
+                dataUrl: reader.result as string,
+                desc: file.name.replace(/\.[^.]+$/, ""),
+              },
+            ];
+          });
         }
       };
       reader.readAsDataURL(file);
@@ -256,6 +266,18 @@ export function CaseDetail({ caseId }: { caseId: string }) {
   };
 
   const requestDraft = async () => {
+    const ALLOWED_STAGES = [
+      "DemandNotice",
+      "FirstAppeal",
+      "SecondAppeal",
+      "RtiApplication",
+      "ConsumerComplaint",
+      "SocialPack",
+    ];
+    if (!ALLOWED_STAGES.includes(stage)) {
+      setDraftError(`Unknown draft stage: ${stage}`);
+      return;
+    }
     setBusy(true);
     setDraftError(null);
     setError(null);
@@ -554,6 +576,7 @@ export function CaseDetail({ caseId }: { caseId: string }) {
                 Escalate to
               </span>
               <select
+                data-testid="stage-select"
                 value={stage}
                 onChange={(e) => setStage(e.target.value)}
                 className="w-full border border-[var(--hairline)] bg-[var(--ink-3)] px-2 py-2 text-xs text-[var(--text)]"
@@ -567,6 +590,7 @@ export function CaseDetail({ caseId }: { caseId: string }) {
               </select>
             </label>
             <button
+              data-testid="draft-btn"
               type="button"
               disabled={busy}
               onClick={() => void requestDraft()}
@@ -680,12 +704,14 @@ export function CaseDetail({ caseId }: { caseId: string }) {
             />
             <div className="flex items-end gap-3">
               <input
+                data-testid="evidence-desc"
                 value={evidenceDesc}
                 onChange={(e) => setEvidenceDesc(e.target.value)}
                 placeholder="Text-only evidence description (optional if uploading images)"
                 className="field-underline flex-1"
               />
               <button
+                data-testid="add-evidence"
                 type="button"
                 onClick={addEvidence}
                 disabled={busy}
@@ -724,7 +750,7 @@ export function CaseDetail({ caseId }: { caseId: string }) {
                 No draft yet — pick an escalation rung and hit Draft.
               </p>
             ) : (
-              <article className="paper-card paper-in space-y-4 p-6">
+              <article data-testid="draft-card" className="paper-card paper-in space-y-4 p-6">
                 <p className="font-mono-data text-[10px] uppercase tracking-[0.2em] text-[#5a5f66]">
                   Formal draft — {draft.stage}
                 </p>
@@ -740,6 +766,7 @@ export function CaseDetail({ caseId }: { caseId: string }) {
                   </p>
                   <div className="flex gap-2">
                     <button
+                      data-testid="approve-draft"
                       type="button"
                       disabled={busy}
                       onClick={() => void post("approve", {})}
@@ -748,6 +775,7 @@ export function CaseDetail({ caseId }: { caseId: string }) {
                       Approve
                     </button>
                     <button
+                      data-testid="reject-draft"
                       type="button"
                       disabled={busy}
                       onClick={() => void post("reject", { reason: "Citizen requested changes" })}

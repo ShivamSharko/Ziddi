@@ -1,4 +1,4 @@
-﻿# Ziddi (ज़िद्दी)
+# Ziddi (ज़िद्दी)
 
 **The AI agent that never gives up on your grievance.**
 
@@ -28,14 +28,14 @@ Every grievance system in India is designed around **filing**. Nothing is design
 
 ## Architecture
 
-`
+```
 packages/domain     → Pure event-sourced domain (zero dependencies)
 packages/gemini     → Typed Gemini client with eval-gated prompts
 packages/ui         → Shared React components + i18n (EN / हिं / Hinglish)
 services/agent      → Orchestrator (connects AI + domain)
 apps/web            → Next.js 16 web app
 extensions/chrome   → Portal automation (CPGRAMS / e-Daakhil / RTI Online)
-`
+```
 
 **Stack:** TypeScript (strict) · Next.js 16 App Router + Turbopack · Gemini 3 Flash family with quota-aware fallback chain · pnpm workspaces · Vitest + Playwright + eval fixtures · GitHub Actions CI
 
@@ -45,7 +45,7 @@ See docs/ARCHITECTURE.md, docs/adr/ and docs/GEMINI_USAGE.md for full details.
 
 ## Running locally
 
-`ash
+```bash
 # Install dependencies
 pnpm install
 
@@ -54,7 +54,7 @@ cd apps/web
 cp .env.local.example .env.local
 # Add your Gemini API key to .env.local (free at https://aistudio.google.com/app/apikey)
 pnpm dev
-`
+```
 
 Open http://localhost:3000 and submit a grievance in Hinglish:
 
@@ -62,7 +62,7 @@ Open http://localhost:3000 and submit a grievance in Hinglish:
 
 ## Testing
 
-`ash
+```bash
 # Typecheck all packages
 pnpm typecheck
 
@@ -74,7 +74,7 @@ pnpm evals
 
 # Run e2e + a11y + mobile (spawns its own server on :3100)
 pnpm test:e2e
-`
+```
 
 ## Docs
 

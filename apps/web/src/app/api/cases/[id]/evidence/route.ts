@@ -6,6 +6,13 @@ const MAX_DATA_URL = 4_000_000;
 
 export async function POST(request: Request, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params;
+
+  const repo = getRepo();
+  const exists = await repo.getCase(id);
+  if (exists.isErr()) {
+    return NextResponse.json({ error: "Case not found" }, { status: 404 });
+  }
+
   const body = await request.json();
 
   const rawItems: unknown = body.items;

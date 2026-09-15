@@ -18,7 +18,8 @@ export type CaseStatus =
   | "Tracking"
   | "Escalating"
   | "Resolved"
-  | "Withdrawn";
+  | "Withdrawn"
+  | "Stale";
 
 export interface EvidenceRef {
   readonly evidenceId: string;
@@ -77,7 +78,11 @@ export const fold = (state: CaseState, event: DomainEvent): CaseState => {
       const f = event.fields ?? {};
       const next = { ...state, events: [...state.events, event] };
       if (typeof f.summary === "string") next.summary = f.summary;
-      if (f.locality === null || typeof f.locality === "string") next.locality = f.locality as string | null;
+      if (f.locality === null) {
+        next.locality = null;
+      } else if (typeof f.locality === "string") {
+        next.locality = f.locality.trim().length > 0 ? f.locality : null;
+      }
       if (typeof f.city === "string") next.city = f.city;
       if (typeof f.state === "string") next.state = f.state;
       if (typeof f.urgency === "string") next.urgency = f.urgency as typeof next.urgency;
@@ -167,7 +172,12 @@ export const fold = (state: CaseState, event: DomainEvent): CaseState => {
     case "CaseClosed":
       return {
         ...state,
-        status: event.outcome === "Resolved" ? "Resolved" : "Withdrawn",
+        status:
+          event.outcome === "Resolved"
+            ? "Resolved"
+            : event.outcome === "Stale"
+              ? "Stale"
+              : "Withdrawn",
         amountPaise: (event.amountRecoveredPaise !== undefined ? event.amountRecoveredPaise : state.amountPaise) as Paise,
         events: [...state.events, event],
       };
@@ -203,6 +213,7 @@ export const STAGE_PROGRESS: Record<CaseStatus, number> = {
   Escalating: 90,
   Resolved: 100,
   Withdrawn: 100,
+  Stale: 100,
 };
 
 export const stageProgress = (state: CaseState): number => STAGE_PROGRESS[state.status];

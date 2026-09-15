@@ -5,7 +5,26 @@ import { caseUpdatedEventSchema } from "@ziddi/domain";
 
 export async function POST(request: Request, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params;
-  const body = (await request.json()) as Record<string, unknown>;
+  let body: Record<string, unknown>;
+  try {
+    body = (await request.json()) as Record<string, unknown>;
+  } catch (err) {
+    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+  }
+
+  const repo = getRepo();
+  const existing = await repo.getCase(id);
+  if (existing.isErr()) {
+    return NextResponse.json({ error: "Case not found" }, { status: 404 });
+  }
+  const currentStatus = existing.value.status;
+  if (currentStatus === "Resolved" || currentStatus === "Withdrawn" || currentStatus === "Stale") {
+    return NextResponse.json(
+      { error: "Case is closed; updates are no longer allowed" },
+      { status: 409 },
+    );
+  }
+
   const fields: Record<string, unknown> = {};
   if (typeof body.summary === "string") {
     const s = body.summary.trim();
@@ -57,7 +76,6 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
         { status: 400 },
       );
     }
-    const repo = getRepo();
     await repo.saveEvent(id, parsed.data);
     return NextResponse.json({ ok: true, fields });
   } catch (err) {

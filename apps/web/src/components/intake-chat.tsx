@@ -155,6 +155,7 @@ export function IntakeChat() {
 
         <div className="space-y-4">
           <textarea
+            data-testid="grievance-text"
             value={text}
             onChange={(e) => setText(e.target.value)}
             placeholder={t("intake.placeholder")}
@@ -236,6 +237,7 @@ export function IntakeChat() {
           </button>
 
           <button
+            data-testid="start-case"
             type="button"
             onClick={() => void submit(false)}
             disabled={step === "thinking" || !text.trim() || verifiedAadhaar === null}
@@ -246,7 +248,7 @@ export function IntakeChat() {
         </div>
 
         {duplicates !== null && duplicates.length > 0 && (
-          <div className="crop-frame ember space-y-3 p-4">
+          <div data-testid="dup-interstitial" className="crop-frame ember space-y-3 p-4">
             <p className="font-display text-sm font-bold">
               Same case, same location already exists — community power ikattha karo:
             </p>
@@ -268,6 +270,7 @@ export function IntakeChat() {
               ))}
             </ul>
             <button
+              data-testid="file-anyway"
               type="button"
               onClick={() => void submit(true)}
               className="font-mono-data text-[10px] uppercase tracking-[0.18em] text-[var(--signal)] underline"
@@ -278,12 +281,13 @@ export function IntakeChat() {
         )}
 
         {result !== null && (
-          <div className={`fade-up mosaic-reveal crop-frame p-4 ${result.error !== undefined ? "ember" : ""}`}>
+          <div data-testid="case-created" className={`fade-up mosaic-reveal crop-frame p-4 ${result.error !== undefined ? "ember" : ""}`}>
             {result.caseId !== undefined && (
               <>
                 <p className="font-display text-sm font-bold text-[var(--moss)]">Case created / supported.</p>
                 <p className="mt-1 font-mono-data text-[10px] text-[var(--text-2)]">CASE #{result.caseId}</p>
                 <a
+                  data-testid="view-case"
                   href={`/cases/${result.caseId}`}
                   className="mt-2 inline-block text-sm text-[var(--signal)] underline"
                 >

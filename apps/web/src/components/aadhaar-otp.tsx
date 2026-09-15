@@ -64,7 +64,7 @@ export function AadhaarOtp({ onVerified, verified }: AadhaarOtpProps) {
   if (verified) {
     return (
       <div className="crop-frame p-4">
-        <p className="font-mono-data text-[10px] uppercase tracking-[0.2em] text-[var(--moss)]">
+        <p data-testid="otp-verified" className="font-mono-data text-[10px] uppercase tracking-[0.2em] text-[var(--moss)]">
           ✓ Verified — crop-marks lock onto identity
         </p>
       </div>
@@ -80,6 +80,7 @@ export function AadhaarOtp({ onVerified, verified }: AadhaarOtpProps) {
           </p>
           <div className="flex items-end gap-3">
             <input
+              data-testid="aadhaar-input"
               inputMode="numeric"
               value={aadhaar}
               onChange={(e) => setAadhaar(e.target.value.replace(/[^\d\s]/g, "").slice(0, 14))}
@@ -89,6 +90,7 @@ export function AadhaarOtp({ onVerified, verified }: AadhaarOtpProps) {
             />
             {!otpSent && (
               <button
+                data-testid="send-otp"
                 type="button"
                 onClick={() => void sendOtp()}
                 disabled={busy || !aadhaarValid}
@@ -104,19 +106,21 @@ export function AadhaarOtp({ onVerified, verified }: AadhaarOtpProps) {
           {otpSent && (
             <div className="space-y-2">
               {devCode !== null && (
-                <p className="rounded-sm border border-[var(--hairline)] bg-[var(--ink-3)] p-2 font-mono-data text-[10px] text-[var(--text-2)]">
+                <p data-testid="otp-dev-code" className="rounded-sm border border-[var(--hairline)] bg-[var(--ink-3)] p-2 font-mono-data text-[10px] text-[var(--text-2)]">
                   DEMO MODE — OTP: <span className="text-[var(--ember)]">{devCode}</span> · production:
                   SMS via licensed gateway
                 </p>
               )}
               <div className="flex items-end gap-3">
                 <input
+                  data-testid="otp-input"
                   value={code}
                   onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
                   placeholder="6-digit OTP"
                   className="field-underline w-40"
                 />
                 <button
+                  data-testid="verify-otp"
                   type="button"
                   onClick={() => void verifyOtp()}
                   disabled={busy || code.length !== 6}
