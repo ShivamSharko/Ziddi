@@ -212,7 +212,7 @@ export class ZiddiOrchestrator {
     caseId: string,
     stage: DraftStage,
     apiKey: string,
-  ): Promise<Result<string, DomainError>> {
+  ): Promise<Result<{ draftId: string; stage: string; body: string; formattedDocument?: string; confidence: number }, DomainError>> {
     const caseResult = await this.repo.getCase(caseId);
     if (caseResult.isErr()) {
       return err(caseResult.error);
@@ -250,7 +250,13 @@ export class ZiddiOrchestrator {
     };
 
     await this.repo.saveEvent(caseId, event);
-    return ok(draftId);
+    return ok({
+      draftId,
+      stage: draft.stage,
+      body: draft.body,
+      formattedDocument: (draft as any).formattedDocument,
+      confidence: draft.confidence,
+    });
   }
 
   async approveDraft(caseId: string): Promise<Result<true, DomainError>> {

@@ -23,8 +23,15 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
     if (result.isErr()) {
       return NextResponse.json({ error: errorMessage(result.error) }, { status: 500 });
     }
-    console.log("[draft] prepared", result.value);
-    return NextResponse.json({ draftId: result.value });
+    console.log("[draft] prepared", result.value.draftId);
+    return NextResponse.json({
+      ok: true,
+      draftId: result.value.draftId,
+      stage: result.value.stage,
+      body: result.value.body,
+      formattedDocument: result.value.formattedDocument,
+      confidence: result.value.confidence,
+    });
   } catch (err) {
     console.error("Draft generation failed:", err);
     return NextResponse.json({ error: String(err) }, { status: 500 });

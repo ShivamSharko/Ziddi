@@ -97,15 +97,6 @@ export function CaseDetail({ caseId }: { caseId: string }) {
         throw new Error(typeof data.error === "string" ? data.error : "Failed to load");
       }
       setDetail(data as CaseDetailData);
-      try {
-        const dres = await fetch(`/api/cases/${caseId}/pending-draft`);
-        if (dres.ok) {
-          const ddata = (await dres.json()) as { draft?: DraftInfo | null };
-          setLiveDraft(ddata.draft ?? null);
-        }
-      } catch {
-        // pending-draft is best-effort
-      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Unknown error");
     }
@@ -221,6 +212,13 @@ export function CaseDetail({ caseId }: { caseId: string }) {
           typeof data.error === "string" ? data.error : `Draft failed (${res.status})`,
         );
       }
+      setLiveDraft({
+        draftId: data.draftId,
+        stage: data.stage,
+        body: data.body,
+        formattedDocument: data.formattedDocument,
+        confidence: data.confidence,
+      });
       await load();
     } catch (e) {
       setDraftError(e instanceof Error ? e.message : "Unknown error");

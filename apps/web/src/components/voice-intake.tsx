@@ -47,8 +47,10 @@ export function VoiceIntake({ onExtraction }: VoiceIntakeProps) {
   const recorderRef = useRef<MediaRecorder | null>(null);
   const modeRef = useRef<"live" | "upload">("live");
   const abortRef = useRef<AbortController | null>(null);
+  const closedRef = useRef(false);
 
   const releaseMic = () => {
+    closedRef.current = true;
     try {
       processorRef.current?.disconnect();
     } catch {
@@ -128,10 +130,15 @@ export function VoiceIntake({ onExtraction }: VoiceIntakeProps) {
     });
 
     processor.onaudioprocess = (e) => {
+      if (closedRef.current) return;
       const cc = chunkRef.current;
       if (cc === null) return;
-      const pcm = resampleTo16k(e.inputBuffer.getChannelData(0), context.sampleRate);
-      cc.enqueue(new Uint8Array(pcm.buffer));
+      try {
+        const pcm = resampleTo16k(e.inputBuffer.getChannelData(0), context.sampleRate);
+        cc.enqueue(new Uint8Array(pcm.buffer));
+      } catch {
+        // stream closed, ignore
+      }
     };
 
     const abort = new AbortController();
@@ -167,7 +174,7 @@ export function VoiceIntake({ onExtraction }: VoiceIntakeProps) {
           for (const line of lines) handleLine(line);
         }
       } catch {
-        // aborted
+        // aborted or closed
       } finally {
         releaseMic();
       }
@@ -207,6 +214,7 @@ export function VoiceIntake({ onExtraction }: VoiceIntakeProps) {
   };
 
   const startRecording = async () => {
+    closedRef.current = false;
     setError(null);
     setTranscript("");
     setProcessing(true);
