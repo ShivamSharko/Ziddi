@@ -27,12 +27,23 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
 
     for (const e of events) {
       const atMs = toMs(e.at);
+      const pick = (...keys: string[]): string | null => {
+        for (const k of keys) {
+          const v = e[k];
+          if (typeof v === "string" && v.length > 0) return v;
+        }
+        return null;
+      };
       let detail: string | null = null;
-      if (e.type === "CaseUpdated") detail = (e.reason as string) ?? "Citizen edited case details";
-      if (e.type === "EvidenceAttached") detail = (e.description as string) ?? null;
-      if (e.type === "DraftPrepared") detail = `Draft prepared: ${String(e.stage ?? "")}`;
-      if (e.type === "DraftApproved") detail = "Citizen approved the draft";
-      if (e.type === "DraftRejected") detail = "Citizen requested changes";
+      if (e.type === "CaseUpdated") detail = pick("reason") ?? "Citizen edited case details";
+      else if (e.type === "EvidenceAttached") detail = pick("description");
+      else if (e.type === "DraftPrepared") detail = `Draft prepared: ${String(e.stage ?? "")}`;
+      else if (e.type === "DraftApproved") detail = "Citizen approved the draft";
+      else if (e.type === "DraftRejected") detail = pick("reason") ?? "Citizen requested changes";
+      else if (e.type === "CaseClosed") detail = pick("outcome", "reason") ?? "Case closed";
+      else if (e.type === "SlaEscalated") detail = `Escalated to: ${pick("nextStage") ?? "next rung"}`;
+      else if (e.type === "CommunityUpvote") detail = "Community support added (OTP-verified)";
+      else if (e.type === "FiledExternally") detail = pick("portal", "reference") ?? "Filed on external portal";
       timeline.push({ type: e.type, atMs, detail });
 
       if (e.type === "CaseOpened") {
@@ -82,7 +93,11 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
         if (base !== null) base.status = "Filed";
       } else if (e.type === "DraftRejected") {
         resolved.add(String(e.draftId));
-      } else if (e.type === "UpvoteReceived" || e.type === "CaseUpvoted") {
+      } else if (
+        e.type === "CommunityUpvote" ||
+        e.type === "UpvoteReceived" ||
+        e.type === "CaseUpvoted"
+      ) {
         votes += 1;
       }
     }

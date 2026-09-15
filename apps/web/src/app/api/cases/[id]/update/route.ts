@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { ulid } from "ulid";
 import { getRepo } from "@/lib/repo";
+import { caseUpdatedEventSchema } from "@ziddi/domain";
 
 export async function POST(request: Request, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params;
@@ -22,8 +23,7 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
   }
 
   try {
-    const repo = getRepo();
-    await repo.saveEvent(id, {
+    const payload = {
       id: ulid(),
       caseId: id,
       type: "CaseUpdated",
@@ -31,7 +31,20 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
       reason: typeof body.reason === "string" ? body.reason : "Citizen edited case details",
       at: BigInt(Date.now()),
       actor: { type: "Citizen", id: "user_1" },
-    } as never);
+    };
+    const parsed = caseUpdatedEventSchema.safeParse(payload);
+    if (!parsed.success) {
+      return NextResponse.json(
+        {
+          error: `Invalid update payload: ${parsed.error.issues
+            .map((i) => `${i.path.join(".")}: ${i.message}`)
+            .join(", ")}`,
+        },
+        { status: 400 },
+      );
+    }
+    const repo = getRepo();
+    await repo.saveEvent(id, parsed.data);
     return NextResponse.json({ ok: true, fields });
   } catch (err) {
     console.error("[case-update]", err);

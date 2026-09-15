@@ -126,7 +126,7 @@ export function CaseDetail({ caseId }: { caseId: string }) {
     city: "",
     state: "",
     urgency: "Standard",
-    amountRupees: 0,
+    amountRupees: "",
   });
 
   const load = useCallback(async () => {
@@ -280,7 +280,8 @@ export function CaseDetail({ caseId }: { caseId: string }) {
           city: editForm.city,
           state: editForm.state,
           urgency: editForm.urgency,
-          amountRupees: editForm.amountRupees,
+          amountRupees:
+            editForm.amountRupees.trim() === "" ? undefined : Number(editForm.amountRupees),
           reason: "Citizen edited case details",
         }),
       });
@@ -386,7 +387,7 @@ export function CaseDetail({ caseId }: { caseId: string }) {
                   city: detail.city,
                   state: detail.state,
                   urgency: detail.urgency,
-                  amountRupees: detail.amountRupees ?? 0,
+                  amountRupees: detail.amountRupees === null ? "" : String(detail.amountRupees),
                 });
               }
               setEditing(!editing);
@@ -428,10 +429,8 @@ export function CaseDetail({ caseId }: { caseId: string }) {
                   className="field-underline w-32"
                   type="number"
                   value={editForm.amountRupees}
-                  onChange={(e) =>
-                    setEditForm({ ...editForm, amountRupees: Number(e.target.value) })
-                  }
-                  placeholder="₹ amount"
+                  onChange={(e) => setEditForm({ ...editForm, amountRupees: e.target.value })}
+                  placeholder="₹ amount (blank = none)"
                 />
               </div>
               <select
