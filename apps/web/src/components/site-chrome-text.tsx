@@ -22,8 +22,10 @@ export function NavLinks() {
 
 export function CreditLine() {
   return (
-    <p className="font-mono-data text-[10px] uppercase tracking-[0.14em] text-[var(--text-2)]">
-      CONCEPT &amp; BUILD — ZIDDI TEAM · AI DRAFTING — GOOGLE GEMINI · FOR — FUND MY CRAZY 2026
+    <p className="font-mono-data text-[10px] uppercase tracking-[0.14em] text-[var(--text-2)] leading-loose">
+      <strong className="font-medium text-[var(--text)]">CONCEPT &amp; BUILD</strong> — ZIDDI TEAM &nbsp;·&nbsp;{" "}
+      <strong className="font-medium text-[var(--text)]">AI DRAFTING</strong> — GOOGLE GEMINI &nbsp;·&nbsp;{" "}
+      <strong className="font-medium text-[var(--text)]">FOR</strong> — FUND MY CRAZY 2026
     </p>
   );
 }

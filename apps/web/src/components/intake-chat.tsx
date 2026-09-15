@@ -127,169 +127,174 @@ export function IntakeChat() {
   const activeTrigger = triggers[0];
 
   return (
-    <div className="crop-frame dim space-y-5 p-6">
-      <div className="flex items-center gap-3">
-        <div className="h-9 w-9 bg-[var(--moss)]" style={{ clipPath: "url(#petal4)" }} aria-hidden />
-        <div>
-          <p className="font-display text-sm font-bold">Ziddi Bot</p>
-          <p className="font-mono-data text-[10px] uppercase tracking-[0.18em] text-[var(--text-2)]">
-            Batao kya hua — I&apos;ll take it from here
-          </p>
+    <div className="grid gap-6 md:grid-cols-[1.4fr_1fr]">
+      <div className="rounded-[6px] border border-[var(--hairline)] bg-[var(--ink-2)] p-6">
+        <div className="mb-5 flex items-start gap-3">
+          <div className="h-9 w-9 shrink-0 bg-[var(--moss)]" style={{ clipPath: "url(#petal4)" }} aria-hidden />
+          <div className="rounded-bl-sm rounded-br-[14px] rounded-tl-[14px] rounded-tr-[14px] bg-[var(--ink-3)] p-3 px-4 text-[15px]">
+            Ziddi Bot — batao kya hua? Hindi, English ya dono mein likh sakte ho.
+          </div>
+        </div>
+
+        {text.length > 0 && (
+          <div className="mb-5 flex justify-end">
+            <div className="rounded-bl-[14px] rounded-br-[4px] rounded-tl-[14px] rounded-tr-[14px] bg-[rgba(36,71,245,0.18)] p-3 px-4 text-[15px] max-w-[80%] break-words">
+              {text}
+            </div>
+          </div>
+        )}
+
+        {activeTrigger !== undefined && (
+          <div className="mb-5 space-y-1 border-l-2 border-[var(--ember)] pl-3">
+            <p className="font-mono-data text-[10px] uppercase tracking-[0.2em] text-[var(--ember)]">
+              {activeTrigger.season} watch
+            </p>
+            <p className="text-sm text-[var(--text-2)]">{activeTrigger.suggestion}</p>
+          </div>
+        )}
+
+        <div className="space-y-4">
+          <textarea
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            placeholder={t("intake.placeholder")}
+            className="field-underline h-28 resize-none w-full"
+            disabled={step === "thinking"}
+          />
+          <div className="flex flex-wrap items-end gap-4 mt-2">
+            <div className="flex-1 min-w-[200px]">
+              <ComboInput
+                options={cityOptions()}
+                value={city}
+                onChange={(v) => {
+                  setCity(v);
+                  const s = stateForCity(v);
+                  if (s !== undefined) setState(s);
+                }}
+                placeholder="City (e.g. Bengaluru)"
+              />
+            </div>
+            {state.length > 0 && (
+              <span className="pb-2 font-mono-data text-[10px] uppercase tracking-[0.18em] text-[var(--signal)]">
+                {state}
+              </span>
+            )}
+          </div>
+          <ComboInput
+            options={localitiesForCity(city).map((l) => ({ value: l }))}
+            value={locality}
+            onChange={setLocality}
+            placeholder={t("intake.locality")}
+          />
         </div>
       </div>
 
-      {activeTrigger !== undefined && (
-        <div className="space-y-1 border-l-2 border-[var(--ember)] pl-3">
-          <p className="font-mono-data text-[10px] uppercase tracking-[0.2em] text-[var(--ember)]">
-            {activeTrigger.season} watch
-          </p>
-          <p className="text-sm text-[var(--text-2)]">{activeTrigger.suggestion}</p>
-        </div>
-      )}
+      <div className="flex flex-col gap-6">
+        <div className="crop-frame space-y-5 p-6">
+          <p className="font-display text-[15px] font-bold">Verify to file</p>
 
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          void submit(false);
-        }}
-        className="space-y-4"
-      >
-        <textarea
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          placeholder={t("intake.placeholder")}
-          className="field-underline h-28 resize-none"
-          disabled={step === "thinking"}
-        />
-        <div className="flex flex-wrap items-end gap-4">
-          <ComboInput
-            options={cityOptions()}
-            value={city}
-            onChange={(v) => {
-              setCity(v);
-              const s = stateForCity(v);
-              if (s !== undefined) setState(s);
-            }}
-            placeholder="City (e.g. Bengaluru)"
-          />
-          {state.length > 0 && (
-            <span className="pb-2 font-mono-data text-[10px] uppercase tracking-[0.18em] text-[var(--signal)]">
-              {state}
-            </span>
+          <AadhaarOtp verified={verifiedAadhaar !== null} onVerified={(a) => setVerifiedAadhaar(a)} />
+
+          <VoiceIntake onExtraction={handleVoiceExtraction} />
+
+          {voiceExtraction !== null && (
+            <div className="crop-frame dim space-y-1 p-3">
+              <p className="font-mono-data text-[10px] uppercase tracking-[0.2em] text-[var(--moss)]">
+                Voice extracted
+              </p>
+              <p className="text-xs text-[var(--text-2)]">
+                <span className="font-mono-data">{voiceExtraction.kind}</span> · {voiceExtraction.city},{" "}
+                {voiceExtraction.state} · {voiceExtraction.urgency}
+                {voiceExtraction.amountRupees !== undefined ? ` · ₹${voiceExtraction.amountRupees}` : ""}
+              </p>
+              <button
+                type="button"
+                onClick={() => {
+                  setVoiceExtraction(null);
+                  setText("");
+                }}
+                className="font-mono-data text-[10px] text-[var(--text-2)] underline"
+              >
+                clear &amp; type manually
+              </button>
+            </div>
           )}
+
+          <button
+            type="button"
+            role="switch"
+            aria-checked={anonymous}
+            onClick={() => setAnonymous(!anonymous)}
+            className="flex items-center gap-3 mt-4"
+          >
+            <span className={`switch ${anonymous ? "on" : ""}`}>
+              <span className="knob" />
+            </span>
+            <span className="flex items-center gap-1.5 text-sm text-[var(--text-2)]">
+              <EyeOff size={14} /> Anonymous mode — naam chhupa rahega
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => void submit(false)}
+            disabled={step === "thinking" || !text.trim() || verifiedAadhaar === null}
+            className="mt-6 w-full rounded-full bg-[var(--ember)] px-6 py-[13px] text-[14.5px] font-bold text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            {step === "thinking" ? t("intake.thinking") : "Start My Case"}
+          </button>
         </div>
-        <ComboInput
-          options={localitiesForCity(city).map((l) => ({ value: l }))}
-          value={locality}
-          onChange={setLocality}
-          placeholder={t("intake.locality")}
-        />
 
-        <AadhaarOtp verified={verifiedAadhaar !== null} onVerified={(a) => setVerifiedAadhaar(a)} />
-
-        <VoiceIntake onExtraction={handleVoiceExtraction} />
-
-        {voiceExtraction !== null && (
-          <div className="crop-frame space-y-1 p-3">
-            <p className="font-mono-data text-[10px] uppercase tracking-[0.2em] text-[var(--moss)]">
-              Voice extracted
+        {duplicates !== null && duplicates.length > 0 && (
+          <div className="crop-frame ember space-y-3 p-4">
+            <p className="font-display text-sm font-bold">
+              Same case, same location already exists — community power ikattha karo:
             </p>
-            <p className="text-xs text-[var(--text-2)]">
-              <span className="font-mono-data">{voiceExtraction.kind}</span> · {voiceExtraction.city},{" "}
-              {voiceExtraction.state} · {voiceExtraction.urgency}
-              {voiceExtraction.amountRupees !== undefined ? ` · ₹${voiceExtraction.amountRupees}` : ""}
-            </p>
+            <ul className="space-y-2">
+              {duplicates.map((d) => (
+                <li key={d.id} className="flex items-center justify-between gap-3 text-xs text-[var(--text-2)]">
+                  <span className="truncate">
+                    {d.summary}
+                    {d.locality !== null ? ` · ${d.locality}` : ""} · {d.votes} votes
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => void supportCase(d.id)}
+                    className="shrink-0 rounded-full bg-[var(--rosewood)] px-3 py-1.5 text-xs font-semibold text-[#2a1a1c]"
+                  >
+                    Support
+                  </button>
+                </li>
+              ))}
+            </ul>
             <button
               type="button"
-              onClick={() => {
-                setVoiceExtraction(null);
-                setText("");
-              }}
-              className="font-mono-data text-[10px] text-[var(--text-2)] underline"
+              onClick={() => void submit(true)}
+              className="font-mono-data text-[10px] uppercase tracking-[0.18em] text-[var(--signal)] underline"
             >
-              clear &amp; type manually
+              Naya case file karna hai anyway? Click here
             </button>
           </div>
         )}
 
-        <button
-          type="button"
-          role="switch"
-          aria-checked={anonymous}
-          onClick={() => setAnonymous(!anonymous)}
-          className="flex items-center gap-3"
-        >
-          <span className={`switch ${anonymous ? "on" : ""}`}>
-            <span className="knob" />
-          </span>
-          <span className="flex items-center gap-1.5 text-xs text-[var(--text-2)]">
-            <EyeOff size={14} /> Anonymous mode — naam shared documents mein hide rahega
-          </span>
-        </button>
-
-        <div className="flex items-center justify-between gap-4">
-          <p className="font-mono-data text-[10px] text-[var(--text-2)]">
-            {step === "thinking" ? t("intake.analyzing") : t("intake.idle")}
-          </p>
-          <button
-            type="submit"
-            disabled={step === "thinking" || !text.trim() || verifiedAadhaar === null}
-            className="rounded-full bg-[var(--ember)] px-6 py-3 text-sm font-semibold text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            {step === "thinking" ? t("intake.thinking") : t("intake.submit")}
-          </button>
-        </div>
-      </form>
-
-      {duplicates !== null && duplicates.length > 0 && (
-        <div className="crop-frame ember space-y-3 p-4">
-          <p className="font-display text-sm font-bold">
-            Same case, same location already exists — community power ikattha karo:
-          </p>
-          <ul className="space-y-2">
-            {duplicates.map((d) => (
-              <li key={d.id} className="flex items-center justify-between gap-3 text-xs text-[var(--text-2)]">
-                <span className="truncate">
-                  {d.summary}
-                  {d.locality !== null ? ` · ${d.locality}` : ""} · {d.votes} votes
-                </span>
-                <button
-                  type="button"
-                  onClick={() => void supportCase(d.id)}
-                  className="shrink-0 rounded-full bg-[var(--rosewood)] px-3 py-1.5 text-xs font-semibold text-[#2a1a1c]"
+        {result !== null && (
+          <div className={`fade-up mosaic-reveal crop-frame p-4 ${result.error !== undefined ? "ember" : ""}`}>
+            {result.caseId !== undefined && (
+              <>
+                <p className="font-display text-sm font-bold text-[var(--moss)]">Case created / supported.</p>
+                <p className="mt-1 font-mono-data text-[10px] text-[var(--text-2)]">CASE #{result.caseId}</p>
+                <a
+                  href={`/cases/${result.caseId}`}
+                  className="mt-2 inline-block text-sm text-[var(--signal)] underline"
                 >
-                  Support
-                </button>
-              </li>
-            ))}
-          </ul>
-          <button
-            type="button"
-            onClick={() => void submit(true)}
-            className="font-mono-data text-[10px] uppercase tracking-[0.18em] text-[var(--signal)] underline"
-          >
-            Naya case file karna hai anyway? Click here
-          </button>
-        </div>
-      )}
-
-      {result !== null && (
-        <div className={`fade-up mosaic-reveal crop-frame p-4 ${result.error !== undefined ? "ember" : ""}`}>
-          {result.caseId !== undefined && (
-            <>
-              <p className="font-display text-sm font-bold text-[var(--moss)]">Case created / supported.</p>
-              <p className="mt-1 font-mono-data text-[10px] text-[var(--text-2)]">CASE #{result.caseId}</p>
-              <a
-                href={`/cases/${result.caseId}`}
-                className="mt-2 inline-block text-sm text-[var(--signal)] underline"
-              >
-                View case →
-              </a>
-            </>
-          )}
-          {result.error !== undefined && <p className="text-sm text-[var(--ember)]">{result.error}</p>}
-        </div>
-      )}
+                  View case →
+                </a>
+              </>
+            )}
+            {result.error !== undefined && <p className="text-sm text-[var(--ember)]">{result.error}</p>}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
