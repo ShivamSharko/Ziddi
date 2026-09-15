@@ -86,6 +86,7 @@ export function CaseDetail({ caseId }: { caseId: string }) {
   const [upvoteDone, setUpvoteDone] = useState(false);
   const [upvoteMsg, setUpvoteMsg] = useState<string | null>(null);
   const [draftError, setDraftError] = useState<string | null>(null);
+  const [liveDraft, setLiveDraft] = useState<DraftInfo | null>(null);
   const [busy, setBusy] = useState(false);
 
   const load = useCallback(async () => {
@@ -96,6 +97,15 @@ export function CaseDetail({ caseId }: { caseId: string }) {
         throw new Error(typeof data.error === "string" ? data.error : "Failed to load");
       }
       setDetail(data as CaseDetailData);
+      try {
+        const dres = await fetch(`/api/cases/${caseId}/pending-draft`);
+        if (dres.ok) {
+          const ddata = (await dres.json()) as { draft?: DraftInfo | null };
+          setLiveDraft(ddata.draft ?? null);
+        }
+      } catch {
+        // pending-draft is best-effort
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Unknown error");
     }
@@ -247,7 +257,7 @@ export function CaseDetail({ caseId }: { caseId: string }) {
   };
   const evidence = detail.evidence ?? [];
   const timeline = detail.timeline ?? [];
-  const draft = detail.currentDraft ?? detail.pendingDraft ?? null;
+  const draft = liveDraft ?? detail.currentDraft ?? detail.pendingDraft ?? null;
   const shareText = encodeURIComponent(
     `Ziddi case ${detail.id}: ${detail.summary} — support karo: ${
       typeof window !== "undefined" ? window.location.href : ""
@@ -555,7 +565,7 @@ export function CaseDetail({ caseId }: { caseId: string }) {
                 No draft yet — pick an escalation rung and hit Draft.
               </p>
             ) : (
-              <article className="paper-card space-y-4 p-6">
+              <article className="paper-card paper-in space-y-4 p-6">
                 <p className="font-mono-data text-[10px] uppercase tracking-[0.2em] text-[#5a5f66]">
                   Formal draft — {draft.stage}
                 </p>

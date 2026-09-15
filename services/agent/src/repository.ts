@@ -37,6 +37,10 @@ export class CaseRepository {
     return rehydrate(events);
   }
 
+  async loadEvents(caseId: string): Promise<ReadonlyArray<import("@ziddi/domain").DomainEvent>> {
+    return this.store.load(caseId);
+  }
+
   async listCaseIds(): Promise<ReadonlyArray<string>> {
     return this.store.listCaseIds();
   }

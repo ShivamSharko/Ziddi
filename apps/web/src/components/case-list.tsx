@@ -90,7 +90,7 @@ export function CaseList() {
           <li key={c.id}>
             <a
               href={`/cases/${c.id}`}
-              className="grid grid-cols-[auto_1fr_auto] items-start gap-4 px-2 py-5 hover:bg-[var(--ink-2)]"
+              className="lift grid grid-cols-[auto_1fr_auto] items-start gap-4 px-2 py-5 hover:bg-[var(--ink-2)]"
             >
               <div className="text-right">
                 <span className="font-anton text-4xl leading-none">{c.votes}</span>
