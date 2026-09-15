@@ -36,7 +36,7 @@ export interface CaseSummaryDto {
   readonly state: string;
   readonly urgency: string;
   readonly status: string;
-  readonly amountRupees: number;
+  readonly amountRupees: number | null;
   readonly openedAtMs: number;
   readonly evidenceCount: number;
   readonly anonymous: boolean;
@@ -84,16 +84,16 @@ export const toCaseSummary = (state: CaseState, nowMs: bigint): CaseSummaryDto =
   summary: state.summary,
   city: state.city,
   state: state.state,
-  urgency: state.urgency,
-  status: state.status,
-  amountRupees: Number(state.amountPaise) / 100,
-  openedAtMs: Number(state.openedAtMs),
-  evidenceCount: state.evidenceCount,
-  anonymous: state.anonymous,
+  urgency: state.urgency ?? "Unknown",
+  status: state.status ?? "Unknown",
+  amountRupees: state.amountPaise !== undefined && state.amountPaise > 0n ? Number(state.amountPaise) / 100 : null,
+  openedAtMs: state.openedAtMs !== undefined ? Number(state.openedAtMs) : 0,
+  evidenceCount: state.evidenceCount ?? 0,
+  anonymous: state.anonymous ?? false,
   progress: stageProgress(state),
   percentile: persistencePercentile(state, nowMs),
-  votes: state.votes,
-    locality: state.locality,
+  votes: state.votes ?? 0,
+  locality: state.locality ?? null,
   slaOverdue: isSlaOverdue(state, nowMs),
   slaRemainingMs: Number(remainingMs(state, nowMs)),
 });

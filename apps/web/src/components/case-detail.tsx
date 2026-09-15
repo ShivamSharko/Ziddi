@@ -221,7 +221,9 @@ export function CaseDetail({ caseId }: { caseId: string }) {
               ? `${detail.locality}, `
               : ""}
             {detail.city}, {detail.state}
-            {detail.amountRupees !== null ? ` · ₹${detail.amountRupees.toLocaleString("en-IN")}` : ""}
+            {detail.amountRupees !== undefined && detail.amountRupees !== null
+              ? ` · ₹${detail.amountRupees.toLocaleString("en-IN")}`
+              : ""}
           </p>
           <p className="font-mono-data text-[10px] text-[var(--text-2)]">
             CASE #{detail.id} · OPENED {fmtStamp(detail.openedAtMs)}
