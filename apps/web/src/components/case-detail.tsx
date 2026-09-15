@@ -85,6 +85,7 @@ export function CaseDetail({ caseId }: { caseId: string }) {
   const [stage, setStage] = useState("DemandNotice");
   const [upvoteDone, setUpvoteDone] = useState(false);
   const [upvoteMsg, setUpvoteMsg] = useState<string | null>(null);
+  const [draftError, setDraftError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   const load = useCallback(async () => {
@@ -189,6 +190,30 @@ export function CaseDetail({ caseId }: { caseId: string }) {
       await load();
     } catch (e) {
       setUpvoteMsg(e instanceof Error ? e.message : "Unknown error");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const requestDraft = async () => {
+    setBusy(true);
+    setDraftError(null);
+    setError(null);
+    try {
+      const res = await fetch(`/api/cases/${caseId}/draft`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ stage }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(
+          typeof data.error === "string" ? data.error : `Draft failed (${res.status})`,
+        );
+      }
+      await load();
+    } catch (e) {
+      setDraftError(e instanceof Error ? e.message : "Unknown error");
     } finally {
       setBusy(false);
     }
@@ -375,10 +400,10 @@ export function CaseDetail({ caseId }: { caseId: string }) {
             <button
               type="button"
               disabled={busy}
-              onClick={() => void post("draft", { stage })}
+              onClick={() => void requestDraft()}
               className="w-full rounded-full bg-[var(--signal)] px-4 py-2 text-xs font-semibold text-white disabled:opacity-40"
             >
-              Draft {stage}
+              {busy ? "Drafting…" : `Draft ${stage}`}
             </button>
           </section>
         </aside>
@@ -522,6 +547,9 @@ export function CaseDetail({ caseId }: { caseId: string }) {
 
           <section className="space-y-4">
             <h2 className="font-display text-lg font-bold">Formal Draft</h2>
+            {draftError !== null && (
+              <p className="text-xs text-[var(--ember)]">Draft failed: {draftError}</p>
+            )}
             {draft === null ? (
               <p className="text-sm text-[var(--text-2)]">
                 No draft yet — pick an escalation rung and hit Draft.

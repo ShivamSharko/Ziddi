@@ -17,11 +17,17 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
     return NextResponse.json({ error: "Invalid draft stage" }, { status: 400 });
   }
 
-  const orchestrator = new ZiddiOrchestrator(getRepo());
-  const result = await orchestrator.requestDraft(id, stage as DraftStage, apiKey);
-  if (result.isErr()) {
-    return NextResponse.json({ error: errorMessage(result.error) }, { status: 500 });
+  try {
+    const orchestrator = new ZiddiOrchestrator(getRepo());
+    const result = await orchestrator.requestDraft(id, stage as DraftStage, apiKey);
+    if (result.isErr()) {
+      return NextResponse.json({ error: errorMessage(result.error) }, { status: 500 });
+    }
+    console.log("[draft] prepared", result.value);
+    return NextResponse.json({ draftId: result.value });
+  } catch (err) {
+    console.error("Draft generation failed:", err);
+    return NextResponse.json({ error: String(err) }, { status: 500 });
   }
-  return NextResponse.json({ draftId: result.value });
 }
 

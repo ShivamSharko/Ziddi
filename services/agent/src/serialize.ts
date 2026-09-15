@@ -11,6 +11,7 @@ export interface PendingDraftDto {
   readonly stage: string;
   readonly language: string;
   readonly body: string;
+  readonly formattedDocument?: string;
   readonly confidence: number;
 }
 
@@ -110,6 +111,7 @@ export const toCaseDetail = (state: CaseState, nowMs: bigint): CaseDetailDto => 
           stage: e.stage,
           language: e.language,
           body: e.body,
+          formattedDocument: (e as any).formattedDocument,
           confidence: e.confidence,
         };
         break;

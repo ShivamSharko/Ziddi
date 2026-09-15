@@ -95,13 +95,13 @@ const DEFAULT_WINDOWS: Record<CaseKind, Record<Urgency, SlaWindow>> = {
 
 export const Sla = {
   windowFor: (kind: CaseKind, urgency: Urgency): SlaWindow => {
-    const kindWindow = DEFAULT_WINDOWS[kind];
-    if (kindWindow === undefined) {
-      throw new Error(`Unknown case kind: ${kind}`);
-    }
-    const window = kindWindow[urgency];
+    const normalizedUrgency: Urgency =
+      urgency === "Emergency" || urgency === "High" || urgency === "Low" ? urgency : "Standard";
+    const kindWindow: Record<Urgency, SlaWindow> | undefined =
+      DEFAULT_WINDOWS[kind] ?? DEFAULT_WINDOWS.CivicPothole;
+    const window: SlaWindow | undefined = kindWindow?.[normalizedUrgency];
     if (window === undefined) {
-      throw new Error(`Unknown urgency: ${urgency}`);
+      throw new Error(`Unknown SLA window for ${kind}/${normalizedUrgency}`);
     }
     return window;
   },
