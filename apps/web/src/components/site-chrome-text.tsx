@@ -37,10 +37,10 @@ export function HeroText() {
   const { t } = useLang();
   return (
     <>
-      <h1 className="font-display text-4xl font-black leading-[0.95] tracking-tight md:text-6xl">
+      <h1 className="font-display text-4xl font-black leading-[0.95] tracking-tight text-white md:text-6xl">
         {t("hero.title")}
       </h1>
-      <p className="mt-4 max-w-xl text-[var(--text-2)]">{t("hero.sub")}</p>
+      <p className="mt-4 max-w-xl text-white/75">{t("hero.sub")}</p>
     </>
   );
 }

@@ -83,7 +83,7 @@ body {
 }
 
 .hero {
-  --hero-photo: url("/images/home-hero.jpg");
+  --hero-photo: url("/images/home-hero.png");
   position: relative;
   overflow: hidden;
   background-color: var(--ink-2);

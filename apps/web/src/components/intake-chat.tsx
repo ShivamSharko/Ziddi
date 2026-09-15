@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
+import { EyeOff } from "lucide-react";
 import { AadhaarOtp } from "./aadhaar-otp";
 import { VoiceIntake } from "./voice-intake";
 import { useLang } from "./language-provider";
@@ -8,6 +9,7 @@ import { useLang } from "./language-provider";
 type Step = "idle" | "thinking" | "success" | "error";
 
 interface FestivalTrigger {
+  season: string;
   label: string;
   kinds: string[];
   suggestion: string;
@@ -21,7 +23,18 @@ interface DuplicateCase {
   city: string;
 }
 
+interface VoiceExtraction {
+  transcript: string;
+  kind: string;
+  summary: string;
+  city: string;
+  state: string;
+  urgency: string;
+  amountRupees?: number;
+}
+
 export function IntakeChat() {
+  const { t } = useLang();
   const [text, setText] = useState("");
   const [locality, setLocality] = useState("");
   const [step, setStep] = useState<Step>("idle");
@@ -29,16 +42,8 @@ export function IntakeChat() {
   const [triggers, setTriggers] = useState<FestivalTrigger[]>([]);
   const [verifiedAadhaar, setVerifiedAadhaar] = useState<string | null>(null);
   const [duplicates, setDuplicates] = useState<DuplicateCase[] | null>(null);
+  const [voiceExtraction, setVoiceExtraction] = useState<VoiceExtraction | null>(null);
   const [result, setResult] = useState<{ caseId?: string; error?: string } | null>(null);
-  const [voiceExtraction, setVoiceExtraction] = useState<{
-    transcript: string;
-    kind: string;
-    summary: string;
-    city: string;
-    state: string;
-    urgency: string;
-    amountRupees?: number;
-  } | null>(null);
 
   useEffect(() => {
     fetch("/api/festivals")
@@ -108,40 +113,31 @@ export function IntakeChat() {
     }
   };
 
-  const handleVoiceExtraction = (data: {
-    transcript: string;
-    kind: string;
-    summary: string;
-    city: string;
-    state: string;
-    urgency: string;
-    amountRupees?: number;
-  }) => {
+  const handleVoiceExtraction = (data: VoiceExtraction) => {
     setVoiceExtraction(data);
     setText(data.summary);
   };
 
-  const { t } = useLang();
   const activeTrigger = triggers[0];
 
   return (
-    <div className="border border-[var(--border)] rounded-xl p-6 space-y-4 bg-[var(--muted)]/30">
-      <div className="flex items-center gap-2">
-        <div className="w-8 h-8 rounded-full bg-[var(--primary)] text-white flex items-center justify-center text-sm font-bold">
-          Z
-        </div>
+    <div className="crop-frame dim space-y-5 p-6">
+      <div className="flex items-center gap-3">
+        <div className="h-9 w-9 bg-[var(--moss)]" style={{ clipPath: "url(#petal4)" }} aria-hidden />
         <div>
-          <div className="font-semibold text-sm">Ziddi Bot</div>
-          <div className="text-xs text-gray-500">Batao kya hua — I&apos;ll take it from here</div>
+          <p className="font-display text-sm font-bold">Ziddi Bot</p>
+          <p className="font-mono-data text-[10px] uppercase tracking-[0.18em] text-[var(--text-2)]">
+            Batao kya hua — I&apos;ll take it from here
+          </p>
         </div>
       </div>
 
       {activeTrigger !== undefined && (
-        <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 space-y-1">
-          <p className="text-xs font-semibold text-amber-800">
-            🎪 {activeTrigger.label} — seasonal spike active
+        <div className="space-y-1 border-l-2 border-[var(--ember)] pl-3">
+          <p className="font-mono-data text-[10px] uppercase tracking-[0.2em] text-[var(--ember)]">
+            {activeTrigger.season} watch
           </p>
-          <p className="text-xs text-amber-700">{activeTrigger.suggestion}</p>
+          <p className="text-sm text-[var(--text-2)]">{activeTrigger.suggestion}</p>
         </div>
       )}
 
@@ -150,20 +146,20 @@ export function IntakeChat() {
           e.preventDefault();
           void submit(false);
         }}
-        className="space-y-3"
+        className="space-y-4"
       >
         <textarea
           value={text}
           onChange={(e) => setText(e.target.value)}
           placeholder={t("intake.placeholder")}
-          className="w-full h-32 px-4 py-3 border border-[var(--border)] rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[var(--primary)] resize-none"
+          className="field-underline h-28 resize-none"
           disabled={step === "thinking"}
         />
         <input
           value={locality}
           onChange={(e) => setLocality(e.target.value)}
           placeholder={t("intake.locality")}
-          className="w-full px-3 py-2 border border-[var(--border)] rounded-md bg-white text-sm"
+          className="field-underline"
         />
 
         <AadhaarOtp verified={verifiedAadhaar !== null} onVerified={(a) => setVerifiedAadhaar(a)} />
@@ -171,54 +167,51 @@ export function IntakeChat() {
         <VoiceIntake onExtraction={handleVoiceExtraction} />
 
         {voiceExtraction !== null && (
-          <div className="rounded-md bg-green-50 border border-green-200 p-3 space-y-2">
-            <p className="text-xs font-medium text-green-800">✅ Voice extracted:</p>
-            <p className="text-xs text-green-700">
-              <strong>Kind:</strong> {voiceExtraction.kind}
+          <div className="crop-frame space-y-1 p-3">
+            <p className="font-mono-data text-[10px] uppercase tracking-[0.2em] text-[var(--moss)]">
+              Voice extracted
             </p>
-            <p className="text-xs text-green-700">
-              <strong>City:</strong> {voiceExtraction.city}, {voiceExtraction.state}
+            <p className="text-xs text-[var(--text-2)]">
+              <span className="font-mono-data">{voiceExtraction.kind}</span> · {voiceExtraction.city},{" "}
+              {voiceExtraction.state} · {voiceExtraction.urgency}
+              {voiceExtraction.amountRupees !== undefined ? ` · ₹${voiceExtraction.amountRupees}` : ""}
             </p>
-            <p className="text-xs text-green-700">
-              <strong>Urgency:</strong> {voiceExtraction.urgency}
-            </p>
-            {voiceExtraction.amountRupees !== undefined && (
-              <p className="text-xs text-green-700">
-                <strong>Amount:</strong> ₹{voiceExtraction.amountRupees}
-              </p>
-            )}
             <button
               type="button"
               onClick={() => {
                 setVoiceExtraction(null);
                 setText("");
               }}
-              className="text-xs text-green-700 underline"
+              className="font-mono-data text-[10px] text-[var(--text-2)] underline"
             >
-              Clear and type manually
+              clear &amp; type manually
             </button>
           </div>
         )}
 
-        <label className="flex items-center gap-2 text-xs text-gray-600 select-none">
-          <input
-            type="checkbox"
-            checked={anonymous}
-            onChange={(e) => setAnonymous(e.target.checked)}
-            className="w-4 h-4 rounded accent-[var(--primary)]"
-          />
-          🕶️ Anonymous mode — naam shared documents mein hide rahega (retaliation-safe)
-        </label>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={anonymous}
+          onClick={() => setAnonymous(!anonymous)}
+          className="flex items-center gap-3"
+        >
+          <span className={`switch ${anonymous ? "on" : ""}`}>
+            <span className="knob" />
+          </span>
+          <span className="flex items-center gap-1.5 text-xs text-[var(--text-2)]">
+            <EyeOff size={14} /> Anonymous mode — naam shared documents mein hide rahega
+          </span>
+        </button>
 
-        <div className="flex items-center justify-between">
-          <div className="text-xs text-gray-500">
-            {step === "thinking" && t("intake.analyzing")}
-            {step === "idle" && t("intake.idle")}
-          </div>
+        <div className="flex items-center justify-between gap-4">
+          <p className="font-mono-data text-[10px] text-[var(--text-2)]">
+            {step === "thinking" ? t("intake.analyzing") : t("intake.idle")}
+          </p>
           <button
             type="submit"
             disabled={step === "thinking" || !text.trim() || verifiedAadhaar === null}
-            className="px-5 py-2 bg-[var(--primary)] text-white rounded-md hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
+            className="rounded-full bg-[var(--ember)] px-6 py-3 text-sm font-semibold text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
           >
             {step === "thinking" ? t("intake.thinking") : t("intake.submit")}
           </button>
@@ -226,24 +219,21 @@ export function IntakeChat() {
       </form>
 
       {duplicates !== null && duplicates.length > 0 && (
-        <div className="rounded-lg border border-blue-300 bg-blue-50 p-4 space-y-3">
-          <p className="text-sm font-semibold text-blue-900">
-            🤝 Same case, same location already exists — community power ikattha karo:
+        <div className="crop-frame ember space-y-3 p-4">
+          <p className="font-display text-sm font-bold">
+            Same case, same location already exists — community power ikattha karo:
           </p>
           <ul className="space-y-2">
             {duplicates.map((d) => (
-              <li
-                key={d.id}
-                className="flex items-center justify-between gap-2 text-xs text-blue-800"
-              >
+              <li key={d.id} className="flex items-center justify-between gap-3 text-xs text-[var(--text-2)]">
                 <span className="truncate">
                   {d.summary}
-                  {d.locality !== null ? ` · ${d.locality}` : ""} · 👍 {d.votes}
+                  {d.locality !== null ? ` · ${d.locality}` : ""} · {d.votes} votes
                 </span>
                 <button
                   type="button"
                   onClick={() => void supportCase(d.id)}
-                  className="px-3 py-1 bg-green-600 text-white rounded shrink-0"
+                  className="shrink-0 rounded-full bg-[var(--rosewood)] px-3 py-1.5 text-xs font-semibold text-[#2a1a1c]"
                 >
                   Support
                 </button>
@@ -253,7 +243,7 @@ export function IntakeChat() {
           <button
             type="button"
             onClick={() => void submit(true)}
-            className="text-xs text-blue-700 underline"
+            className="font-mono-data text-[10px] uppercase tracking-[0.18em] text-[var(--signal)] underline"
           >
             Naya case file karna hai anyway? Click here
           </button>
@@ -261,26 +251,20 @@ export function IntakeChat() {
       )}
 
       {result !== null && (
-        <div
-          className={`p-4 rounded-lg ${
-            step === "error" ? "bg-red-50 border border-red-200" : "bg-green-50 border border-green-200"
-          }`}
-        >
+        <div className={`mosaic-reveal crop-frame p-4 ${result.error !== undefined ? "ember" : ""}`}>
           {result.caseId !== undefined && (
             <>
-              <p className="text-sm font-medium text-green-900">✅ Case created / supported!</p>
-              <p className="text-xs text-green-700 mt-1">
-                Case ID: <code className="bg-white px-1 py-0.5 rounded">{result.caseId}</code>
-              </p>
+              <p className="font-display text-sm font-bold text-[var(--moss)]">Case created / supported.</p>
+              <p className="mt-1 font-mono-data text-[10px] text-[var(--text-2)]">CASE #{result.caseId}</p>
               <a
                 href={`/cases/${result.caseId}`}
-                className="inline-block mt-1 text-sm text-[var(--primary)] hover:underline"
+                className="mt-2 inline-block text-sm text-[var(--signal)] underline"
               >
                 View case →
               </a>
             </>
           )}
-          {result.error !== undefined && <p className="text-sm text-red-700">❌ {result.error}</p>}
+          {result.error !== undefined && <p className="text-sm text-[var(--ember)]">{result.error}</p>}
         </div>
       )}
     </div>

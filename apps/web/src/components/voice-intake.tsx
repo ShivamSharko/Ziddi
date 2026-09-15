@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { Mic } from "lucide-react";
 
 interface ExtractedCase {
   transcript: string;
@@ -202,29 +203,30 @@ export function VoiceIntake({ onExtraction }: VoiceIntakeProps) {
           type="button"
           onClick={recording ? stopRecording : () => void startRecording()}
           disabled={processing}
-          className={`px-4 py-2 rounded-md text-sm font-medium disabled:opacity-50 ${
+          className={`flex items-center gap-2 rounded-full px-4 py-2 text-xs font-semibold disabled:opacity-40 ${
             recording
-              ? "bg-red-600 text-white hover:bg-red-700"
-              : "bg-[var(--primary)] text-white hover:opacity-90"
+              ? "bg-[var(--ember)] text-white"
+              : "border border-[var(--signal)] text-[var(--signal)] hover:bg-[var(--signal)] hover:text-white"
           }`}
         >
-          {processing ? "⏳ Connecting..." : recording ? "⏹️ Stop Recording" : "🎤 Voice Intake (Live)"}
+          <Mic size={14} />
+          {processing ? "Connecting..." : recording ? "Stop Recording" : "Voice Intake (Live)"}
         </button>
         {recording && (
-          <span className="text-xs text-red-600 animate-pulse">● Live streaming...</span>
+          <span className="font-mono-data text-[10px] text-[var(--ember)] animate-pulse">
+            ● LIVE STREAM
+          </span>
         )}
       </div>
 
-      {error !== null && (
-        <div className="rounded-md bg-red-50 border border-red-200 p-2 text-xs text-red-700">
-          {error}
-        </div>
-      )}
+      {error !== null && <p className="text-xs text-[var(--ember)]">{error}</p>}
 
       {transcript.length > 0 && (
-        <div className="rounded-md bg-[var(--muted)] p-3">
-          <p className="text-xs font-medium text-gray-600 mb-1">Live transcript:</p>
-          <p className="text-sm text-gray-800">{transcript}</p>
+        <div className="crop-frame dim p-3">
+          <p className="mb-1 font-mono-data text-[10px] uppercase tracking-[0.2em] text-[var(--text-2)]">
+            Live transcript
+          </p>
+          <p className="text-sm">{transcript}</p>
         </div>
       )}
     </div>

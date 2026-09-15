@@ -16,6 +16,7 @@
     "@ziddi/agent": "workspace:*",
     "@ziddi/domain": "workspace:*",
     "@ziddi/ui": "workspace:*",
+    "lucide-react": "^1.46.0",
     "next": "^16.2.11",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",

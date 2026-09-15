@@ -63,74 +63,87 @@ export function AadhaarOtp({ onVerified, verified }: AadhaarOtpProps) {
 
   if (verified) {
     return (
-      <p className="text-xs text-green-600">
-        ✅ Aadhaar + OTP verified (number never stored - hash only)
-      </p>
+      <div className="crop-frame p-4">
+        <p className="font-mono-data text-[10px] uppercase tracking-[0.2em] text-[var(--moss)]">
+          ✓ Verified — crop-marks lock onto identity
+        </p>
+      </div>
     );
   }
 
   return (
-    <div className="space-y-2">
-      <div className="flex gap-2">
-        <input
-          inputMode="numeric"
-          value={aadhaar}
-          onChange={(e) => setAadhaar(e.target.value.replace(/[^\d\s]/g, "").slice(0, 14))}
-          placeholder="12-digit Aadhaar number"
-          disabled={otpSent}
-          className={`flex-1 px-3 py-2 border rounded-md bg-white text-sm focus:outline-none focus:ring-2 ${
-            aadhaar.length === 0
-              ? "border-[var(--border)] focus:ring-[var(--primary)]"
-              : aadhaarValid
-                ? "border-green-400 focus:ring-green-400"
-                : "border-red-300 focus:ring-red-300"
-          }`}
-        />
-        {!otpSent && (
-          <button
-            type="button"
-            onClick={() => void sendOtp()}
-            disabled={busy || !aadhaarValid}
-            className="px-3 py-2 bg-[var(--primary)] text-white rounded-md text-xs disabled:opacity-50 shrink-0"
-          >
-            Send OTP
-          </button>
-        )}
-      </div>
-      {aadhaar.length > 0 && !aadhaarValid && !otpSent && (
-        <p className="text-xs text-red-500">❌ Invalid: 12 digits + Verhoeff checksum required</p>
-      )}
-      {otpSent && (
-        <div className="space-y-2">
-          {devCode !== null && (
-            <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded p-2">
-              🧪 Demo mode: your OTP is <strong>{devCode}</strong>. Production: SMS to
-              Aadhaar-linked mobile via licensed gateway.
-            </p>
-          )}
-          <div className="flex gap-2">
+    <div className="crop-frame dim p-4">
+      <div className="flex gap-4">
+        <div className="flex-1 space-y-3">
+          <p className="font-mono-data text-[10px] uppercase tracking-[0.2em] text-[var(--text-2)]">
+            Verify to file
+          </p>
+          <div className="flex items-end gap-3">
             <input
-              value={code}
-              onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
-              placeholder="6-digit OTP"
-              className="flex-1 px-3 py-2 border border-[var(--border)] rounded-md bg-white text-sm"
+              inputMode="numeric"
+              value={aadhaar}
+              onChange={(e) => setAadhaar(e.target.value.replace(/[^\d\s]/g, "").slice(0, 14))}
+              placeholder="12-digit Aadhaar number"
+              disabled={otpSent}
+              className="field-underline flex-1"
             />
-            <button
-              type="button"
-              onClick={() => void verifyOtp()}
-              disabled={busy || code.length !== 6}
-              className="px-3 py-2 bg-green-600 text-white rounded-md text-xs disabled:opacity-50 shrink-0"
-            >
-              Verify
-            </button>
+            {!otpSent && (
+              <button
+                type="button"
+                onClick={() => void sendOtp()}
+                disabled={busy || !aadhaarValid}
+                className="shrink-0 rounded-full border border-[var(--signal)] px-4 py-2 text-xs font-semibold text-[var(--signal)] hover:bg-[var(--signal)] hover:text-white disabled:opacity-40"
+              >
+                Send OTP
+              </button>
+            )}
           </div>
+          {aadhaar.length > 0 && !aadhaarValid && !otpSent && (
+            <p className="text-xs text-[var(--ember)]">Invalid: 12 digits + Verhoeff checksum required</p>
+          )}
+          {otpSent && (
+            <div className="space-y-2">
+              {devCode !== null && (
+                <p className="rounded-sm border border-[var(--hairline)] bg-[var(--ink-3)] p-2 font-mono-data text-[10px] text-[var(--text-2)]">
+                  DEMO MODE — OTP: <span className="text-[var(--ember)]">{devCode}</span> · production:
+                  SMS via licensed gateway
+                </p>
+              )}
+              <div className="flex items-end gap-3">
+                <input
+                  value={code}
+                  onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                  placeholder="6-digit OTP"
+                  className="field-underline w-40"
+                />
+                <button
+                  type="button"
+                  onClick={() => void verifyOtp()}
+                  disabled={busy || code.length !== 6}
+                  className="shrink-0 rounded-full bg-[var(--signal)] px-4 py-2 text-xs font-semibold text-white disabled:opacity-40"
+                >
+                  Verify
+                </button>
+              </div>
+            </div>
+          )}
+          {msg !== null && <p className="text-xs text-[var(--ember)]">{msg}</p>}
+          <p className="text-[11px] text-[var(--text-2)]">
+            Aadhaar number is NEVER stored — only a one-way salted hash (UIDAI-compliant). OTP proves
+            you own the number.
+          </p>
         </div>
-      )}
-      {msg !== null && <p className="text-xs text-red-500">{msg}</p>}
-      <p className="text-[11px] text-gray-500">
-        Aadhaar number is NEVER stored — only a one-way salted hash (UIDAI-compliant). OTP proves
-        you own the number.
-      </p>
+        <div
+          aria-hidden
+          className="hidden h-24 w-20 shrink-0 opacity-80 md:block"
+          style={{
+            backgroundImage: "url('/images/otp-verify.png')",
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+            clipPath: "url(#petal4)",
+          }}
+        />
+      </div>
     </div>
   );
 }
