@@ -43,9 +43,9 @@ export function LanguageToggle() {
   const { locale, setLocale } = useLang();
   return (
     <div
-      className="flex items-center gap-1 rounded-md border border-[var(--border)] p-1"
       role="group"
       aria-label="Language selection"
+      className="flex items-center overflow-hidden rounded-full border border-[var(--hairline)]"
     >
       {LOCALES.map((l) => (
         <button
@@ -53,10 +53,10 @@ export function LanguageToggle() {
           type="button"
           onClick={() => setLocale(l.id)}
           aria-pressed={locale === l.id}
-          className={`px-2 py-1 rounded text-xs ${
+          className={`px-2.5 py-1 font-mono-data text-[10px] uppercase tracking-widest ${
             locale === l.id
-              ? "bg-[var(--primary)] text-white"
-              : "text-gray-600 hover:bg-[var(--muted)]"
+              ? "bg-[var(--signal)] text-white"
+              : "text-[var(--text-2)] hover:text-[var(--text)]"
           }`}
         >
           {l.label}
@@ -65,4 +65,3 @@ export function LanguageToggle() {
     </div>
   );
 }
-
