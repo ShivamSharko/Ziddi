@@ -274,7 +274,7 @@ export function IntakeChat() {
       )}
 
       {result !== null && (
-        <div className={`mosaic-reveal crop-frame p-4 ${result.error !== undefined ? "ember" : ""}`}>
+        <div className={`fade-up mosaic-reveal crop-frame p-4 ${result.error !== undefined ? "ember" : ""}`}>
           {result.caseId !== undefined && (
             <>
               <p className="font-display text-sm font-bold text-[var(--moss)]">Case created / supported.</p>
