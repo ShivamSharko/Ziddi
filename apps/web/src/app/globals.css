@@ -1,17 +1,18 @@
 @import "tailwindcss";
 
 :root {
-  --ink: #0B0D10;
-  --ink-2: #15181D;
-  --ink-3: #1D2127;
+  --ink: #12151A;
+  --ink-2: #1A1E24;
+  --ink-3: #232830;
   --paper: #F3EFE6;
   --signal: #2447F5;
   --ember: #FF5A36;
   --moss: #7C8F6B;
   --rosewood: #C98A93;
-  --text: #EDEDEB;
-  --text-2: #96979E;
-  --hairline: rgba(255, 255, 255, 0.14);
+  --text: #F4F4F2;
+  --text-2: #ADAEB6;
+  --hairline: rgba(255, 255, 255, 0.18);
+  color-scheme: dark;
 }
 
 html,
@@ -173,4 +174,25 @@ body {
 }
 .switch.on .knob {
   left: 20px;
+}
+
+* {
+  scrollbar-color: var(--ink-3) transparent;
+  scrollbar-width: thin;
+}
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--ink-3);
+  border-radius: 4px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+select,
+select option {
+  background-color: var(--ink-2);
+  color: var(--text);
 }

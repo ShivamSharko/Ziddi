@@ -54,6 +54,7 @@ interface CaseDetailData {
   evidence?: EvidenceItem[];
   timeline?: TimelineItem[];
   currentDraft?: DraftInfo | null;
+  pendingDraft?: DraftInfo | null;
 }
 
 const fmtStamp = (ms: number): string => {
@@ -78,6 +79,9 @@ export function CaseDetail({ caseId }: { caseId: string }) {
   const [detail, setDetail] = useState<CaseDetailData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [evidenceDesc, setEvidenceDesc] = useState("");
+  const [pendingFiles, setPendingFiles] = useState<
+    Array<{ name: string; dataUrl: string; desc: string }>
+  >([]);
   const [stage, setStage] = useState("DemandNotice");
   const [upvoteDone, setUpvoteDone] = useState(false);
   const [upvoteMsg, setUpvoteMsg] = useState<string | null>(null);
@@ -122,9 +126,50 @@ export function CaseDetail({ caseId }: { caseId: string }) {
   };
 
   const addEvidence = () => {
-    if (evidenceDesc.trim().length < 3) return;
-    void post("evidence", { items: [{ description: evidenceDesc.trim(), mimeType: "text/plain" }] });
+    const items: Array<{
+      description: string;
+      mimeType: string;
+      dataUrl?: string;
+      fileName?: string;
+    }> = [];
+    for (const f of pendingFiles) {
+      const mimeType = f.dataUrl.split(";")[0]?.replace("data:", "") || "image/jpeg";
+      items.push({
+        description: f.desc.trim().length >= 3 ? f.desc.trim() : f.name,
+        mimeType,
+        dataUrl: f.dataUrl,
+        fileName: f.name,
+      });
+    }
+    if (items.length === 0 && evidenceDesc.trim().length >= 3) {
+      items.push({ description: evidenceDesc.trim(), mimeType: "text/plain" });
+    }
+    if (items.length === 0) return;
+    void post("evidence", { items });
     setEvidenceDesc("");
+    setPendingFiles([]);
+  };
+
+  const onFilesChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? []);
+    e.target.value = "";
+    const remaining = 6 - pendingFiles.length;
+    for (const file of files.slice(0, Math.max(0, remaining))) {
+      const reader = new FileReader();
+      reader.onload = () => {
+        if (typeof reader.result === "string") {
+          setPendingFiles((prev) => [
+            ...prev,
+            {
+              name: file.name,
+              dataUrl: reader.result as string,
+              desc: file.name.replace(/\.[^.]+$/, ""),
+            },
+          ]);
+        }
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   const postUpvote = async (aadhaar: string) => {
@@ -177,7 +222,7 @@ export function CaseDetail({ caseId }: { caseId: string }) {
   };
   const evidence = detail.evidence ?? [];
   const timeline = detail.timeline ?? [];
-  const draft = detail.currentDraft ?? null;
+  const draft = detail.currentDraft ?? detail.pendingDraft ?? null;
   const shareText = encodeURIComponent(
     `Ziddi case ${detail.id}: ${detail.summary} — support karo: ${
       typeof window !== "undefined" ? window.location.href : ""
@@ -392,11 +437,58 @@ export function CaseDetail({ caseId }: { caseId: string }) {
                 ))}
               </div>
             )}
+            {pendingFiles.length > 0 && (
+              <div className="crop-frame dim space-y-2 p-3">
+                <p className="font-mono-data text-[10px] uppercase tracking-[0.2em] text-[var(--text-2)]">
+                  Staged for upload ({pendingFiles.length}/6)
+                </p>
+                {pendingFiles.map((f, i) => (
+                  <div key={`${f.name}-${i}`} className="flex items-center gap-3">
+                    <span
+                      aria-hidden
+                      className="h-10 w-10 shrink-0"
+                      style={{
+                        backgroundImage: `url(${f.dataUrl})`,
+                        backgroundSize: "cover",
+                        backgroundPosition: "center",
+                        clipPath: "url(#petal4)",
+                      }}
+                    />
+                    <input
+                      value={f.desc}
+                      onChange={(e) =>
+                        setPendingFiles((prev) =>
+                          prev.map((p, j) => (j === i ? { ...p, desc: e.target.value } : p)),
+                        )
+                      }
+                      placeholder="Description (3+ chars)"
+                      className="field-underline flex-1"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setPendingFiles((prev) => prev.filter((_, j) => j !== i))}
+                      className="font-mono-data text-xs text-[var(--ember)]"
+                      aria-label={`Remove ${f.name}`}
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+            <input
+              type="file"
+              accept="image/*"
+              multiple
+              onChange={onFilesChange}
+              disabled={pendingFiles.length >= 6}
+              className="block w-full text-xs text-[var(--text-2)] file:mr-2 file:rounded-full file:border-0 file:bg-[var(--ink-3)] file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-[var(--signal)]"
+            />
             <div className="flex items-end gap-3">
               <input
                 value={evidenceDesc}
                 onChange={(e) => setEvidenceDesc(e.target.value)}
-                placeholder="Text-only evidence description (if not uploading files)"
+                placeholder="Text-only evidence description (optional if uploading images)"
                 className="field-underline flex-1"
               />
               <button
