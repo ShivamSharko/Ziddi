@@ -7,3 +7,5 @@ export * from "./festivals";
 
 export * from "./aadhaar";
 export * from "./legal-registry";
+
+export { CITY_DIRECTORY, cityOptions, stateForCity, localitiesForCity, type CityInfo } from "./geo";

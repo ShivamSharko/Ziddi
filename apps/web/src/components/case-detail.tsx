@@ -1,29 +1,39 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { isValidAadhaar } from "@ziddi/domain";
+import { Camera, Share2 } from "lucide-react";
+import { Sla, type CaseKind, type Urgency } from "@ziddi/domain";
 import { AadhaarOtp } from "./aadhaar-otp";
 
-interface PendingDraft {
-  draftId: string;
-  stage: string;
-  language: string;
-  body: string;
-  confidence: number;
+interface ProgressInfo {
+  percent: number;
+  evidence: number;
+  approvals: number;
+  daysActive: number;
+  percentile: number;
 }
 
-interface CaseEventDto {
-  type: string;
-  at: number;
-  actor: string;
-  detail: string;
-}
-
-interface EvidenceDto {
-  evidenceId: string;
+interface EvidenceItem {
+  id: string;
   description: string;
   mimeType: string;
+  fileName?: string;
   dataUrl?: string;
+  atMs?: number;
+}
+
+interface TimelineItem {
+  type: string;
+  atMs: number;
+  detail?: string;
+}
+
+interface DraftInfo {
+  draftId: string;
+  stage: string;
+  body: string;
+  formattedDocument?: string;
+  confidence: number;
 }
 
 interface CaseDetailData {
@@ -35,59 +45,66 @@ interface CaseDetailData {
   locality: string | null;
   urgency: string;
   status: string;
-  amountRupees: number;
-  openedAtMs: number;
-  evidenceCount: number;
-  slaOverdue: boolean;
-  slaRemainingMs: number;
-  anonymous: boolean;
-  progress: number;
-  percentile: number;
   votes: number;
-  events: CaseEventDto[];
-  evidence: EvidenceDto[];
-  pendingDraft: PendingDraft | null;
+  anonymous: boolean;
+  amountRupees: number | null;
+  evidenceCount: number;
+  openedAtMs: number;
+  progress?: ProgressInfo;
+  evidence?: EvidenceItem[];
+  timeline?: TimelineItem[];
+  currentDraft?: DraftInfo | null;
 }
 
-interface PendingFile {
-  name: string;
-  dataUrl: string;
-  desc: string;
-}
+const fmtStamp = (ms: number): string => {
+  const d = new Date(ms);
+  const date = d.toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric" });
+  const time = d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: false });
+  return `${date} · ${time}`;
+};
 
-const DAY_MS = 86_400_000;
-const STAGES = ["DemandNotice", "FirstAppeal", "RtiApplication"] as const;
-type Stage = (typeof STAGES)[number];
+const fmtCountdown = (ms: bigint): string => {
+  const total = ms < 0n ? 0n : ms / 1000n;
+  const h = total / 3600n;
+  const m = (total % 3600n) / 60n;
+  const s = total % 60n;
+  const pad = (n: bigint) => String(n).padStart(2, "0");
+  return `${pad(h)}:${pad(m)}:${pad(s)}`;
+};
 
-export function CaseDetailView({ caseId }: { caseId: string }) {
+const humanize = (s: string): string => s.replace(/([a-z])([A-Z])/g, "$1 $2");
+
+export function CaseDetail({ caseId }: { caseId: string }) {
   const [detail, setDetail] = useState<CaseDetailData | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [textEvidenceDesc, setTextEvidenceDesc] = useState("");
-  const [pendingFiles, setPendingFiles] = useState<PendingFile[]>([]);
+  const [evidenceDesc, setEvidenceDesc] = useState("");
+  const [stage, setStage] = useState("DemandNotice");
   const [upvoteDone, setUpvoteDone] = useState(false);
   const [upvoteMsg, setUpvoteMsg] = useState<string | null>(null);
-  const [stage, setStage] = useState<Stage>("DemandNotice");
+  const [busy, setBusy] = useState(false);
 
   const load = useCallback(async () => {
-    const res = await fetch(`/api/cases/${caseId}`);
-    const data = await res.json();
-    if (!res.ok) {
-      setError(typeof data.error === "string" ? data.error : "Failed to load case");
-      return;
+    try {
+      const res = await fetch(`/api/cases/${caseId}`);
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(typeof data.error === "string" ? data.error : "Failed to load");
+      }
+      setDetail(data as CaseDetailData);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Unknown error");
     }
-    setDetail(data.case as CaseDetailData);
   }, [caseId]);
 
   useEffect(() => {
     void load();
   }, [load]);
 
-  const post = async (path: string, body: unknown) => {
+  const post = async (suffix: string, body: unknown) => {
     setBusy(true);
     setError(null);
     try {
-      const res = await fetch(`/api/cases/${caseId}/${path}`, {
+      const res = await fetch(`/api/cases/${caseId}/${suffix}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
@@ -104,57 +121,10 @@ export function CaseDetailView({ caseId }: { caseId: string }) {
     }
   };
 
-  const onFilesChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files ?? []);
-    e.target.value = "";
-    const remaining = 6 - pendingFiles.length;
-    const toAdd = files.slice(0, Math.max(0, remaining));
-    for (const file of toAdd) {
-      const reader = new FileReader();
-      reader.onload = () => {
-        if (typeof reader.result === "string") {
-          setPendingFiles((prev) => [
-            ...prev,
-            {
-              name: file.name,
-              dataUrl: reader.result as string,
-              desc: file.name.replace(/\.[^.]+$/, ""),
-            },
-          ]);
-        }
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
   const addEvidence = () => {
-    const items: Array<{
-      description: string;
-      mimeType: string;
-      dataUrl?: string;
-      fileName?: string;
-    }> = [];
-
-    for (const f of pendingFiles) {
-      const mimeType =
-        f.dataUrl.split(";")[0]?.replace("data:", "") ?? "application/octet-stream";
-      items.push({
-        description: f.desc.trim().length >= 3 ? f.desc.trim() : f.name,
-        mimeType,
-        dataUrl: f.dataUrl,
-        fileName: f.name,
-      });
-    }
-
-    if (items.length === 0 && textEvidenceDesc.trim().length >= 3) {
-      items.push({ description: textEvidenceDesc.trim(), mimeType: "text/plain" });
-    }
-
-    if (items.length === 0) return;
-
-    void post("evidence", { items });
-    setTextEvidenceDesc("");
-    setPendingFiles([]);
+    if (evidenceDesc.trim().length < 3) return;
+    void post("evidence", { items: [{ description: evidenceDesc.trim(), mimeType: "text/plain" }] });
+    setEvidenceDesc("");
   };
 
   const postUpvote = async (aadhaar: string) => {
@@ -179,297 +149,330 @@ export function CaseDetailView({ caseId }: { caseId: string }) {
     }
   };
 
+  if (error !== null && detail === null) {
+    return <p className="text-sm text-[var(--ember)]">{error}</p>;
+  }
   if (detail === null) {
-    return <div className="py-12 text-center text-gray-500">Loading case...</div>;
+    return <p className="mosaic-reveal font-mono-data text-xs text-[var(--text-2)]">READING CASE FILE…</p>;
   }
 
-  const daysLeft = Math.ceil(detail.slaRemainingMs / DAY_MS);
-  const daysActive = Math.max(1, Math.floor((Date.now() - detail.openedAtMs) / DAY_MS));
-  const approvals = detail.events.filter((e) => e.type === "DraftApproved").length;
+  let sla = { overdue: false, label: "—" };
+  try {
+    const win = Sla.windowFor(detail.kind as CaseKind, detail.urgency as Urgency);
+    const remaining = BigInt(detail.openedAtMs) + win.resolutionMs - BigInt(Date.now());
+    sla =
+      remaining < 0n
+        ? { overdue: true, label: "OVERDUE — escalate" }
+        : { overdue: false, label: `${fmtCountdown(remaining)} left` };
+  } catch {
+    // unknown kind
+  }
 
-  const shareText = `Ziddi case ${detail.id.slice(0, 8)}: ${detail.summary} | ${detail.city} | 👍 ${detail.votes} supports | SLA ${daysLeft}d left. Family se discuss karo: ${typeof window !== "undefined" ? window.location.href : ""}`;
+  const progress = detail.progress ?? {
+    percent: 0,
+    evidence: detail.evidenceCount,
+    approvals: 0,
+    daysActive: 0,
+    percentile: 0,
+  };
+  const evidence = detail.evidence ?? [];
+  const timeline = detail.timeline ?? [];
+  const draft = detail.currentDraft ?? null;
+  const shareText = encodeURIComponent(
+    `Ziddi case ${detail.id}: ${detail.summary} — support karo: ${
+      typeof window !== "undefined" ? window.location.href : ""
+    }`,
+  );
 
   return (
-    <div className="space-y-6">
-      <header className="space-y-3">
-        <div className="flex flex-wrap items-center gap-2 text-xs">
-          <span className="font-mono text-gray-500">{detail.id}</span>
-          <span className="px-2 py-0.5 bg-[var(--muted)] rounded">{detail.kind}</span>
-          <span className="px-2 py-0.5 bg-[var(--muted)] rounded">{detail.urgency}</span>
-          <span className="px-2 py-0.5 bg-[var(--primary)]/10 text-[var(--primary)] rounded">
-            {detail.status}
-          </span>
-          <span className="px-2 py-0.5 bg-green-100 text-green-700 rounded">👍 {detail.votes}</span>
-          {detail.anonymous && (
-            <span className="px-2 py-0.5 bg-gray-800 text-white rounded">🕶️ Anonymous</span>
-          )}
-        </div>
-        <h1 className="text-2xl font-bold">{detail.summary}</h1>
-        <p className="text-sm text-gray-500">
-          {detail.locality !== null && detail.locality.length > 0
-            ? `${detail.locality}, `
-            : ""}
-          {detail.city}, {detail.state}
-          {detail.amountRupees > 0
-            ? ` · ₹${detail.amountRupees.toLocaleString("en-IN")}`
-            : ""}
-        </p>
-        <div>
-          <div className="flex justify-between text-xs text-gray-500 mb-1">
-            <span>Case progress</span>
-            <span>{detail.progress}%</span>
+    <div className="space-y-8">
+      <div className="relative">
+        <span
+          aria-hidden
+          className="pointer-events-none absolute -top-8 left-0 select-none font-anton text-[18vw] leading-none text-white/[0.04] md:text-[9rem]"
+        >
+          ON RECORD
+        </span>
+        <div className="relative space-y-3">
+          <div className="flex flex-wrap gap-2">
+            <span className="chip-ember rounded-full px-2.5 py-0.5 text-[10px] font-semibold">
+              {detail.urgency} urgency
+            </span>
+            <span className="chip-moss rounded-full px-2.5 py-0.5 text-[10px] font-semibold">
+              {detail.kind}
+            </span>
+            <span className="chip-signal rounded-full px-2.5 py-0.5 text-[10px] font-semibold">
+              {detail.status}
+            </span>
+            {detail.anonymous && (
+              <span className="chip-rosewood rounded-full px-2.5 py-0.5 text-[10px] font-semibold">
+                anonymous
+              </span>
+            )}
+            {evidence.length > 0 && (
+              <span className="chip-moss rounded-full px-2.5 py-0.5 text-[10px] font-semibold">
+                verified evidence
+              </span>
+            )}
           </div>
-          <div className="h-2 w-full rounded-full bg-[var(--muted)]">
-            <div
-              className="h-2 rounded-full bg-[var(--primary)] transition-all"
-              style={{ width: `${detail.progress}%` }}
-            />
-          </div>
-        </div>
-      </header>
-
-      <section className="rounded-lg border border-[var(--border)] p-4">
-        <div className="flex items-center justify-between gap-4 flex-wrap">
-          <div>
-            <p className="text-sm font-semibold">🔥 Fight Meter</p>
-            <p className="text-xs text-gray-600 mt-1">
-              You&apos;re more persistent than <strong>{detail.percentile}%</strong> of fighters in{" "}
-              {detail.city}.
-            </p>
-            <p className="text-xs text-gray-500 mt-1">
-              📸 {detail.evidenceCount} evidence · 📝 {approvals} approved · 📅 {daysActive} days
-              fighting
-            </p>
-          </div>
-          <a
-            href={`https://wa.me/?text=${encodeURIComponent(shareText)}`}
-            target="_blank"
-            rel="noreferrer"
-            className="px-4 py-2 bg-green-600 text-white rounded-md text-sm hover:opacity-90 shrink-0"
-          >
-            👨👩👧 Share with family
-          </a>
-        </div>
-      </section>
-
-      <section className="rounded-lg border border-[var(--border)] p-4 space-y-3">
-        <div>
-          <p className="text-sm font-semibold">👍 Community support: {detail.votes}</p>
-          <p className="text-xs text-gray-600 mt-1">
-            Zyada votes = zyada priority. Ek citizen, ek vote (Aadhaar-verified, number never
-            stored).
+          <h1 className="font-display text-3xl font-black leading-tight md:text-4xl">{detail.summary}</h1>
+          <p className="text-sm text-[var(--text-2)]">
+            {detail.locality !== undefined && detail.locality !== null && detail.locality.length > 0
+              ? `${detail.locality}, `
+              : ""}
+            {detail.city}, {detail.state}
+            {detail.amountRupees !== null ? ` · ₹${detail.amountRupees.toLocaleString("en-IN")}` : ""}
+          </p>
+          <p className="font-mono-data text-[10px] text-[var(--text-2)]">
+            CASE #{detail.id} · OPENED {fmtStamp(detail.openedAtMs)}
           </p>
         </div>
-        {upvoteDone ? (
-          <p className="text-xs text-green-600">✅ Your support counted. Shukriya!</p>
-        ) : (
-          <AadhaarOtp verified={false} onVerified={(aadhaar) => void postUpvote(aadhaar)} />
-        )}
-        {upvoteMsg !== null && <p className="text-xs text-red-500">{upvoteMsg}</p>}
-      </section>
-
-      <section
-        className={`rounded-lg border p-4 ${
-          detail.slaOverdue ? "border-red-300 bg-red-50" : "border-green-300 bg-green-50"
-        }`}
-      >
-        <div className="flex items-center justify-between gap-4">
-          <div>
-            <p className="text-sm font-semibold">
-              {detail.slaOverdue ? "⏰ SLA breached — time to escalate" : "⏳ Within legal SLA window"}
-            </p>
-            <p className="text-xs text-gray-600 mt-1">
-              {detail.slaOverdue
-                ? `Overdue by ${Math.abs(daysLeft)} days. Ziddi recommends the next escalation rung.`
-                : `${daysLeft} days left before escalation is due.`}
-            </p>
-          </div>
-          <button
-            onClick={() => void post("draft", { stage })}
-            disabled={busy}
-            className="px-4 py-2 bg-[var(--primary)] text-white rounded-md text-sm disabled:opacity-50 shrink-0"
-          >
-            {busy ? "Gemini writing..." : `Draft ${stage}`}
-          </button>
-        </div>
-        <label className="block mt-3 text-xs text-gray-600">
-          Escalation rung:{" "}
-          <select
-            value={stage}
-            onChange={(e) => setStage(e.target.value as Stage)}
-            className="ml-1 border border-[var(--border)] rounded px-2 py-1 bg-white text-sm"
-          >
-            {STAGES.map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
-            ))}
-          </select>
-        </label>
-      </section>
-
-      {error !== null && (
-        <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-          {error}
-        </div>
-      )}
-
-      <div className="grid gap-6 md:grid-cols-2">
-        <section className="rounded-lg border border-[var(--border)] p-4 space-y-3">
-          <h2 className="font-semibold">📸 Evidence Vault ({detail.evidenceCount})</h2>
-          <p className="text-xs text-gray-500">
-            Receipts, UPI screenshots, agreements, photos — har cheez count hoti hai. Multi-upload
-            supported (max 6 per batch).
-          </p>
-
-          {detail.evidence.length > 0 && (
-            <div className="grid grid-cols-3 gap-2">
-              {detail.evidence.map((ev) => (
-                <div
-                  key={ev.evidenceId}
-                  className="rounded border border-[var(--border)] overflow-hidden bg-white"
-                >
-                  {ev.dataUrl !== undefined && ev.dataUrl.length > 0 ? (
-                    <img
-                      src={ev.dataUrl}
-                      alt={ev.description}
-                      className="h-16 w-full object-cover"
-                    />
-                  ) : (
-                    <div className="h-16 flex items-center justify-center bg-[var(--muted)] text-xl">
-                      📄
-                    </div>
-                  )}
-                  <p className="text-[10px] p-1 truncate" title={ev.description}>
-                    {ev.description}
-                  </p>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {pendingFiles.length > 0 && (
-            <div className="space-y-2 border border-dashed border-[var(--border)] rounded-md p-3">
-              <p className="text-xs font-medium text-gray-600">
-                Ready to upload ({pendingFiles.length}/6):
-              </p>
-              {pendingFiles.map((f, i) => (
-                <div key={`${f.name}-${i}`} className="flex items-center gap-2">
-                  <img
-                    src={f.dataUrl}
-                    alt={f.name}
-                    className="h-10 w-10 rounded object-cover border border-[var(--border)]"
-                  />
-                  <input
-                    value={f.desc}
-                    onChange={(e) =>
-                      setPendingFiles((prev) =>
-                        prev.map((p, j) => (j === i ? { ...p, desc: e.target.value } : p)),
-                      )
-                    }
-                    placeholder="Description (3+ chars)"
-                    className="flex-1 px-2 py-1 border border-[var(--border)] rounded-md bg-white text-xs"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setPendingFiles((prev) => prev.filter((_, j) => j !== i))}
-                    className="text-red-500 text-xs px-2"
-                    title="Remove"
-                  >
-                    ✕
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-
-          <input
-            value={textEvidenceDesc}
-            onChange={(e) => setTextEvidenceDesc(e.target.value)}
-            placeholder="Text-only evidence description (if not uploading files)"
-            className="w-full px-3 py-2 border border-[var(--border)] rounded-md bg-white text-sm"
-          />
-          <input
-            type="file"
-            accept="image/*"
-            multiple
-            onChange={onFilesChange}
-            disabled={pendingFiles.length >= 6}
-            className="block w-full text-xs text-gray-500 file:mr-2 file:px-3 file:py-1.5 file:rounded-md file:border-0 file:bg-[var(--primary)]/10 file:text-[var(--primary)] file:text-xs file:font-medium"
-          />
-          <p className="text-[11px] text-gray-500">
-            Select up to {6 - pendingFiles.length} more images. Describe each before uploading.
-          </p>
-          <button
-            onClick={addEvidence}
-            disabled={
-              busy ||
-              (pendingFiles.length === 0 && textEvidenceDesc.trim().length < 3)
-            }
-            className="px-4 py-2 bg-[var(--primary)] text-white rounded-md text-sm disabled:opacity-50"
-          >
-            Add evidence (
-            {pendingFiles.length > 0
-              ? pendingFiles.length
-              : textEvidenceDesc.trim().length >= 3
-                ? 1
-                : 0}
-            )
-          </button>
-        </section>
-
-        <section className="rounded-lg border border-[var(--border)] p-4 space-y-2">
-          <h2 className="font-semibold">🕰️ Case Timeline</h2>
-          <ul className="space-y-2 text-sm">
-            {detail.events.map((e, i) => (
-              <li key={`${e.at}-${i}`} className="flex gap-2">
-                <span className="text-gray-400 shrink-0">
-                  {new Date(e.at).toLocaleDateString("en-IN")}
-                </span>
-                <span>
-                  <strong>{e.type}</strong> · {e.detail}{" "}
-                  <span className="text-gray-400">({e.actor})</span>
-                </span>
-              </li>
-            ))}
-          </ul>
-        </section>
       </div>
 
-      {detail.pendingDraft !== null && (
-        <section className="rounded-lg border border-[var(--border)] p-4 space-y-3">
-          <div className="flex items-center justify-between">
-            <h2 className="font-semibold">📝 Draft: {detail.pendingDraft.stage}</h2>
-            <span className="text-xs text-gray-500">
-              confidence {(detail.pendingDraft.confidence * 100).toFixed(0)}% ·{" "}
-              {detail.pendingDraft.language}
-            </span>
-          </div>
-          <pre className="whitespace-pre-wrap rounded-md bg-[var(--muted)] p-4 text-sm max-h-96 overflow-auto">
-            {detail.pendingDraft.body}
-          </pre>
-          <p className="text-xs text-gray-500">
-            Informational assistance, not legal advice. Review before sending. Ziddi never
-            auto-files.
-          </p>
-          <div className="flex gap-3">
+      <div className="grid gap-8 md:grid-cols-[320px_1fr]">
+        <aside className="space-y-4 md:sticky md:top-20 md:self-start">
+          <section className="crop-frame dim space-y-4 p-5">
+            <p className="font-display text-sm font-bold">Fight Meter</p>
+            <div className="flex items-center gap-4">
+              <div className="relative h-32 w-32 shrink-0" style={{ clipPath: "url(#petal4)" }}>
+                <div
+                  className="absolute inset-0"
+                  style={{ background: `conic-gradient(var(--signal) ${progress.percent}%, var(--ink-3) 0)` }}
+                />
+                <div
+                  className="absolute inset-3 flex items-center justify-center"
+                  style={{ clipPath: "url(#petal4)", background: "var(--ink-2)" }}
+                >
+                  <span className="font-anton text-3xl">{progress.percent}%</span>
+                </div>
+              </div>
+              <p className="text-xs text-[var(--text-2)]">
+                More persistent than {progress.percentile}% of fighters in {detail.city}
+              </p>
+            </div>
+            <div className="flex gap-4 font-mono-data text-[10px] text-[var(--text-2)]">
+              <span>
+                <span className="font-anton text-base text-[var(--text)]">{progress.evidence}</span> evidence
+              </span>
+              <span>
+                <span className="font-anton text-base text-[var(--text)]">{progress.approvals}</span> approvals
+              </span>
+              <span>
+                <span className="font-anton text-base text-[var(--text)]">{progress.daysActive}</span> days
+              </span>
+            </div>
+            <div className="flex justify-end">
+              <a
+                href={`https://wa.me/?text=${shareText}`}
+                target="_blank"
+                rel="noreferrer"
+                aria-label="Share with family on WhatsApp"
+                className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--ink-3)] text-[var(--text)] hover:bg-[var(--signal)]"
+              >
+                <Share2 size={14} />
+              </a>
+            </div>
+          </section>
+
+          <section className="crop-frame dim space-y-3 p-5">
+            <div className="flex items-center gap-3">
+              <span
+                aria-hidden
+                className="flex h-10 w-10 shrink-0 items-center justify-center bg-[var(--rosewood)] font-display text-xl font-black text-[#2a1a1c]"
+                style={{ clipPath: "url(#blob1)" }}
+              >
+                +
+              </span>
+              <div>
+                <p className="font-display text-sm font-bold">
+                  <span className="font-anton text-xl">{detail.votes}</span> backing this case
+                </p>
+                <p className="text-[11px] text-[var(--text-2)]">OTP-verified, one vote per person</p>
+              </div>
+            </div>
+            {upvoteDone ? (
+              <p className="font-mono-data text-[10px] uppercase tracking-[0.2em] text-[var(--moss)]">
+                ✓ Your support counted
+              </p>
+            ) : (
+              <AadhaarOtp verified={false} onVerified={(aadhaar) => void postUpvote(aadhaar)} />
+            )}
+            {upvoteMsg !== null && <p className="text-xs text-[var(--ember)]">{upvoteMsg}</p>}
+          </section>
+
+          <section className={`crop-frame space-y-3 p-5 ${sla.overdue ? "ember" : "dim"}`}>
+            <p className="font-display text-sm font-bold">Statutory SLA</p>
+            <p className={`font-mono-data text-xs ${sla.overdue ? "text-[var(--ember)]" : "text-[var(--text-2)]"}`}>
+              {sla.label}
+            </p>
+            {sla.overdue && (
+              <p className="text-xs text-[var(--text-2)]">
+                Statutory deadline breach recorded. Escalation ladder ready.
+              </p>
+            )}
+            <label className="block space-y-1">
+              <span className="font-mono-data text-[10px] uppercase tracking-[0.2em] text-[var(--text-2)]">
+                Escalate to
+              </span>
+              <select
+                value={stage}
+                onChange={(e) => setStage(e.target.value)}
+                className="w-full border border-[var(--hairline)] bg-[var(--ink-3)] px-2 py-2 text-xs text-[var(--text)]"
+              >
+                <option value="DemandNotice">Demand Notice</option>
+                <option value="FirstAppeal">First Appeal</option>
+                <option value="SecondAppeal">Second Appeal</option>
+                <option value="RtiApplication">RTI Application</option>
+              </select>
+            </label>
             <button
-              onClick={() => void post("approve", { approved: true })}
+              type="button"
               disabled={busy}
-              className="px-4 py-2 bg-green-600 text-white rounded-md text-sm disabled:opacity-50"
+              onClick={() => void post("draft", { stage })}
+              className="w-full rounded-full bg-[var(--signal)] px-4 py-2 text-xs font-semibold text-white disabled:opacity-40"
             >
-              ✅ Approve draft
+              Draft {stage}
             </button>
-            <button
-              onClick={() => void post("approve", { approved: false, reason: "Needs changes" })}
-              disabled={busy}
-              className="px-4 py-2 border border-[var(--border)] rounded-md text-sm disabled:opacity-50"
-            >
-              ✏️ Request changes
-            </button>
-          </div>
-        </section>
-      )}
+          </section>
+        </aside>
+
+        <div className="space-y-8">
+          <section className="space-y-4">
+            <h2 className="font-display text-lg font-bold">Evidence Vault</h2>
+            {evidence.length === 0 ? (
+              <div className="crop-frame dim flex items-center gap-4 p-4">
+                <div
+                  aria-hidden
+                  className="h-20 w-20 shrink-0 opacity-70"
+                  style={{
+                    backgroundImage: "url('/images/evidence-mosaic.png')",
+                    backgroundSize: "cover",
+                    backgroundPosition: "center",
+                    clipPath: "url(#petal4)",
+                  }}
+                />
+                <p className="text-sm text-[var(--text-2)]">
+                  No evidence on record — receipts, screenshots, UPI refs yahan add karo.
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+                {evidence.map((ev, i) => (
+                  <figure key={ev.id} className="space-y-1">
+                    {i % 2 === 0 ? (
+                      <div
+                        className="flex h-24 items-center justify-center bg-[var(--ink-3)]"
+                        style={{
+                          clipPath: "url(#petal4)",
+                          ...(ev.dataUrl !== undefined
+                            ? { backgroundImage: `url(${ev.dataUrl})`, backgroundSize: "cover", backgroundPosition: "center" }
+                            : {}),
+                        }}
+                      >
+                        {ev.dataUrl === undefined && <Camera size={18} className="text-[var(--text-2)]" />}
+                      </div>
+                    ) : (
+                      <div
+                        className="crop-frame dim flex h-24 items-center justify-center"
+                        style={
+                          ev.dataUrl !== undefined
+                            ? { backgroundImage: `url(${ev.dataUrl})`, backgroundSize: "cover", backgroundPosition: "center" }
+                            : undefined
+                        }
+                      >
+                        {ev.dataUrl === undefined && <Camera size={18} className="text-[var(--text-2)]" />}
+                      </div>
+                    )}
+                    <figcaption className="font-mono-data text-[9px] uppercase tracking-[0.18em] text-[var(--text-2)]">
+                      EVID-{String(i + 1).padStart(2, "0")} · {ev.description.slice(0, 24)}
+                    </figcaption>
+                  </figure>
+                ))}
+              </div>
+            )}
+            <div className="flex items-end gap-3">
+              <input
+                value={evidenceDesc}
+                onChange={(e) => setEvidenceDesc(e.target.value)}
+                placeholder="Text-only evidence description (if not uploading files)"
+                className="field-underline flex-1"
+              />
+              <button
+                type="button"
+                onClick={addEvidence}
+                disabled={busy}
+                className="shrink-0 rounded-full border border-[var(--signal)] px-4 py-2 text-xs font-semibold text-[var(--signal)] hover:bg-[var(--signal)] hover:text-white disabled:opacity-40"
+              >
+                Add evidence
+              </button>
+            </div>
+          </section>
+
+          <section className="space-y-4">
+            <h2 className="font-display text-lg font-bold">Timeline</h2>
+            <ol className="space-y-4 border-l border-[var(--hairline)] pl-5">
+              {timeline.map((item, i) => (
+                <li key={i} className="relative space-y-0.5">
+                  <span aria-hidden className="absolute -left-[26px] top-1 font-mono-data text-xs text-[var(--signal)]">
+                    +
+                  </span>
+                  <p className="text-sm">
+                    {humanize(item.type)}
+                    {item.detail !== undefined ? ` — ${item.detail}` : ""}
+                  </p>
+                  <p className="font-mono-data text-[10px] text-[var(--text-2)]">{fmtStamp(item.atMs)}</p>
+                </li>
+              ))}
+            </ol>
+          </section>
+
+          <section className="space-y-4">
+            <h2 className="font-display text-lg font-bold">Formal Draft</h2>
+            {draft === null ? (
+              <p className="text-sm text-[var(--text-2)]">
+                No draft yet — pick an escalation rung and hit Draft.
+              </p>
+            ) : (
+              <article className="paper-card space-y-4 p-6">
+                <p className="font-mono-data text-[10px] uppercase tracking-[0.2em] text-[#5a5f66]">
+                  Formal draft — {draft.stage}
+                </p>
+                <p className="whitespace-pre-wrap text-sm leading-relaxed">
+                  {draft.formattedDocument ?? draft.body}
+                </p>
+                <div className="flex flex-wrap items-end justify-between gap-4">
+                  <p className="text-[#5a5f66]">
+                    <span className="font-anton text-4xl text-[#14161a]">
+                      {Math.round(draft.confidence * 100)}
+                    </span>
+                    <span className="font-mono-data text-xs">/ 100 confidence</span>
+                  </p>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() => void post("approve", {})}
+                      className="rounded-full bg-[#14161a] px-5 py-2 text-xs font-semibold text-[var(--paper)] disabled:opacity-40"
+                    >
+                      Approve
+                    </button>
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() => void post("reject", { reason: "Citizen requested changes" })}
+                      className="rounded-full border border-[#14161a] px-5 py-2 text-xs font-semibold text-[#14161a] disabled:opacity-40"
+                    >
+                      Request changes
+                    </button>
+                  </div>
+                </div>
+              </article>
+            )}
+          </section>
+
+          {error !== null && <p className="text-sm text-[var(--ember)]">{error}</p>}
+        </div>
+      </div>
     </div>
   );
 }

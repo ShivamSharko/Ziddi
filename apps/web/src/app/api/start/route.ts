@@ -50,9 +50,17 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: errorMessage(analysis.error) }, { status: 500 });
     }
     const extracted = analysis.value;
+    const city =
+      typeof body.city === "string" && body.city.trim().length > 0
+        ? body.city.trim()
+        : extracted.city;
+    const state =
+      typeof body.state === "string" && body.state.trim().length > 0
+        ? body.state.trim()
+        : extracted.state;
 
     if (!forceNew) {
-      const duplicates = await orchestrator.findDuplicates(extracted.kind, extracted.city, locality);
+      const duplicates = await orchestrator.findDuplicates(extracted.kind, city, locality);
       if (duplicates.length > 0) {
         return NextResponse.json(
           {
@@ -75,6 +83,8 @@ export async function POST(request: Request) {
       anonymous: body.anonymous === true,
       citizenToken: token,
       locality,
+      city,
+      state,
       extraction: extracted,
     });
     if (result.isErr()) {

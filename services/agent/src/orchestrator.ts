@@ -24,6 +24,8 @@ export interface StartCaseInput {
   anonymous?: boolean;
   citizenToken: string;
   locality?: string;
+  city?: string;
+  state?: string;
   extraction?: IntakeExtract.IntakeExtract;
 }
 
@@ -93,10 +95,15 @@ export class ZiddiOrchestrator {
       );
     }
 
-    if (extracted.city === "Unknown" || extracted.state === "Unknown") {
+    const city =
+      input.city !== undefined && input.city.length > 0 ? input.city : extracted.city;
+    const state =
+      input.state !== undefined && input.state.length > 0 ? input.state : extracted.state;
+
+    if (city === "Unknown" || state === "Unknown") {
       return err(
         domainError.validation(
-          "Please mention your city and state (e.g. Bengaluru, Karnataka) taaki case sahi department ko jaaye.",
+          "City select karo form mein (ya text mein city likho) taaki case sahi department ko jaaye.",
         ),
       );
     }
@@ -117,8 +124,8 @@ export class ZiddiOrchestrator {
       type: "CaseOpened",
       kind: extracted.kind,
       summary: extracted.summary,
-      city: extracted.city,
-      state: extracted.state,
+      city,
+      state,
       locality: input.locality,
       urgency: extracted.urgency,
       amountPaise,

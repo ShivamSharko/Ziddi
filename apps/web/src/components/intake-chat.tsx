@@ -5,6 +5,8 @@ import { EyeOff } from "lucide-react";
 import { AadhaarOtp } from "./aadhaar-otp";
 import { VoiceIntake } from "./voice-intake";
 import { useLang } from "./language-provider";
+import { ComboInput } from "./location-fields";
+import { cityOptions, localitiesForCity, stateForCity } from "@ziddi/domain";
 
 type Step = "idle" | "thinking" | "success" | "error";
 
@@ -37,6 +39,8 @@ export function IntakeChat() {
   const { t } = useLang();
   const [text, setText] = useState("");
   const [locality, setLocality] = useState("");
+  const [city, setCity] = useState("");
+  const [state, setState] = useState("");
   const [step, setStep] = useState<Step>("idle");
   const [anonymous, setAnonymous] = useState(false);
   const [triggers, setTriggers] = useState<FestivalTrigger[]>([]);
@@ -71,6 +75,8 @@ export function IntakeChat() {
           anonymous,
           aadhaar: verifiedAadhaar,
           locality,
+          city,
+          state,
           forceNew,
         }),
       });
@@ -155,11 +161,28 @@ export function IntakeChat() {
           className="field-underline h-28 resize-none"
           disabled={step === "thinking"}
         />
-        <input
+        <div className="flex flex-wrap items-end gap-4">
+          <ComboInput
+            options={cityOptions()}
+            value={city}
+            onChange={(v) => {
+              setCity(v);
+              const s = stateForCity(v);
+              if (s !== undefined) setState(s);
+            }}
+            placeholder="City (e.g. Bengaluru)"
+          />
+          {state.length > 0 && (
+            <span className="pb-2 font-mono-data text-[10px] uppercase tracking-[0.18em] text-[var(--signal)]">
+              {state}
+            </span>
+          )}
+        </div>
+        <ComboInput
+          options={localitiesForCity(city).map((l) => ({ value: l }))}
           value={locality}
-          onChange={(e) => setLocality(e.target.value)}
+          onChange={setLocality}
           placeholder={t("intake.locality")}
-          className="field-underline"
         />
 
         <AadhaarOtp verified={verifiedAadhaar !== null} onVerified={(a) => setVerifiedAadhaar(a)} />
